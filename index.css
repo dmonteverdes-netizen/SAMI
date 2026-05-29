@@ -1,0 +1,381 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;750&display=swap');
+@import "tailwindcss";
+
+@theme {
+
+  /* ── SAMI Brand Colors ── */
+
+  --color-brand-50: #eef2ff;
+
+  --color-brand-100: #e0e7ff;
+
+  --color-brand-200: #c7d2fe;
+
+  --color-brand-500: #6366f1;
+
+  --color-brand-600: #4f46e5;
+
+  --color-brand-700: #4338ca;
+
+  --color-brand-800: #3730a3;
+
+  --color-brand-900: #312e81;
+
+  /* ── Slate Scale ── */
+
+  --color-slate-50: #f8fafc;
+
+  --color-slate-100: #f1f5f9;
+
+  --color-slate-200: #e2e8f0;
+
+  --color-slate-300: #cbd5e1;
+
+  --color-slate-400: #94a3b8;
+
+  --color-slate-500: #64748b;
+
+  --color-slate-600: #475569;
+
+  --color-slate-700: #334155;
+
+  --color-slate-800: #1e293b;
+
+  --color-slate-900: #0f172a;
+
+  --color-slate-950: #020617;
+
+  /* ── Typography — Plus Jakarta Sans ── */
+
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* ── Radii ── */
+
+  --radius-4xl: 2rem;
+
+  --radius-5xl: 3rem;
+
+  /* ── Animations ── */
+
+  @keyframes fade-up {
+
+    from { opacity: 0; transform: translateY(16px); }
+
+    to   { opacity: 1; transform: translateY(0); }
+
+  }
+
+  @keyframes pulse-glow {
+
+    0%, 100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4); }
+
+    50%       { box-shadow: 0 0 0 12px rgba(79, 70, 229, 0); }
+
+  }
+
+  @keyframes slide-in-bottom {
+
+    from { opacity: 0; transform: translateY(24px); }
+
+    to   { opacity: 1; transform: translateY(0); }
+
+  }
+
+  --animate-fade-up: fade-up 0.5s ease-out forwards;
+
+  --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
+
+  --animate-slide-in: slide-in-bottom 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+
+  @keyframes shake {
+
+    0%, 100% { transform: translateX(0); }
+
+    20%, 60% { transform: translateX(-6px); }
+
+    40%, 80% { transform: translateX(6px); }
+
+  }
+
+  --animate-shake: shake 0.4s ease-in-out;
+
+  @keyframes ruc-slide-in {
+    from {
+      opacity: 0;
+      transform: translateY(30px) scale(0.97);
+      filter: blur(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      filter: blur(0);
+    }
+  }
+
+  --animate-ruc-slide-in: ruc-slide-in 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+
+}
+
+@layer base {
+
+  *, *::before, *::after {
+
+    box-sizing: border-box;
+
+    -webkit-tap-highlight-color: transparent;
+
+  }
+
+  html {
+
+    scroll-behavior: smooth;
+
+    font-size: 16px; /* Base para accesibilidad */
+
+    -webkit-text-size-adjust: 100%;
+
+  }
+
+  /* Global thin scrollbars to maximize elegant native integration */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.25);
+    border-radius: 9999px;
+    transition: background-color 0.2s ease;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.45);
+  }
+
+  body {
+
+    @apply font-sans bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50 antialiased;
+
+    overscroll-behavior: none;
+
+    /* Mejora para iOS safe area (notch) */
+
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+
+  }
+
+  /* Fuente mínima de 16px en inputs (evita zoom automático en iOS) */
+
+  input, select, textarea {
+
+    font-size: 16px !important;
+
+  }
+
+  :focus-visible {
+    @apply outline-none ring-3 ring-brand-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-950;
+  }
+
+  /* Custom text sizes */
+
+  .text-2xs {
+
+    font-size: 0.625rem; /* 10px */
+
+    line-height: 1rem;
+
+  }
+
+  /* Light mode legibility utilities */
+  .text-readable {
+    @apply text-gray-700 dark:text-gray-300;
+  }
+
+  .text-readable-muted {
+    @apply text-gray-500 dark:text-gray-400;
+  }
+
+  .heading-primary {
+    @apply text-gray-900 dark:text-white font-extrabold;
+  }
+
+  /* Fix: ensure number/mono text is always legible */
+  .text-mono-display {
+    font-family: 'DM Mono', ui-monospace, monospace;
+    @apply text-gray-900 dark:text-white font-medium;
+  }
+
+  /* Fix for gradient text cross-browser */
+  .gradient-text {
+    background: linear-gradient(135deg, #3B5BDB, #4F46E5, #2F9E44);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+  }
+
+}
+
+@layer components {
+
+  /* ── Glassmorphism ── */
+
+  .glass {
+
+    @apply backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 border border-white/20 dark:border-white/5;
+
+  }
+
+  /* ── Premium Card ── */
+
+  .card {
+
+    @apply bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm transition-all duration-300;
+
+  }
+
+  .card-hover:hover {
+
+    @apply shadow-lg -translate-y-0.5;
+
+  }
+
+  /* ── Botón Principal — Táctil ── */
+
+  .btn-primary {
+
+    @apply bg-brand-600 hover:bg-brand-700 text-white font-bold py-4 px-6 rounded-2xl
+
+           text-base transition-all active:scale-95 shadow-md shadow-brand-500/20
+
+           min-h-[52px] flex items-center justify-center gap-2 select-none;
+
+  }
+
+  .btn-secondary {
+
+    @apply bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700
+
+           text-slate-700 dark:text-slate-300 font-semibold py-3.5 px-5 rounded-2xl
+
+           text-sm transition-all active:scale-95 min-h-[48px] flex items-center justify-center gap-2;
+
+  }
+
+  .btn-success {
+
+    @apply bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 px-6 rounded-2xl
+
+           text-base transition-all active:scale-95 shadow-md shadow-emerald-500/20
+
+           min-h-[52px] flex items-center justify-center gap-2;
+
+  }
+
+  .btn-danger {
+
+    @apply bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-5 rounded-xl
+
+           transition-all active:scale-95 min-h-[44px];
+
+  }
+
+  /* ── Input Táctil ── */
+
+  .input-field {
+
+    @apply w-full px-4 py-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700
+
+           bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400
+
+           focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-100 dark:focus:ring-brand-900/30
+
+           transition-all text-base min-h-[56px];
+
+  }
+
+  /* ── Badge Status ── */
+
+  .badge-green  { @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400; }
+
+  .badge-red    { @apply bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400; }
+
+  .badge-amber  { @apply bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400; }
+
+  .badge-blue   { @apply bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400; }
+
+  /* ── Bottom Nav Safe Area ── */
+
+  .bottom-nav-safe {
+
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+
+  }
+
+  /* ── Custom Scrollbar ── */
+
+  .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+
+  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb { @apply bg-slate-200 dark:bg-slate-700 rounded-full; }
+
+  /* ── Animaciones de entrada ── */
+
+  .animate-fade-up { animation: var(--animate-fade-up); }
+
+  .animate-pulse-glow { animation: var(--animate-pulse-glow); }
+
+  .animate-slide-in { animation: var(--animate-slide-in); }
+
+  .animate-shake { animation: var(--animate-shake); }
+
+  .animate-ruc-slide-in { animation: var(--animate-ruc-slide-in); }
+
+  .ruc-result-panel {
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* ── SAMI Aesthetic Visual Enhancements ── */
+  .grid-pattern {
+    background-image: radial-gradient(rgba(99, 102, 241, 0.08) 1.5px, transparent 1.5px);
+    background-size: 24px 24px;
+  }
+  .dark .grid-pattern {
+    background-image: radial-gradient(rgba(99, 102, 241, 0.15) 1.5px, transparent 1.5px);
+  }
+  .grid-pattern-slate {
+    background-image: radial-gradient(rgba(148, 163, 184, 0.07) 1.2px, transparent 1.2px);
+    background-size: 20px 20px;
+  }
+  .dark .grid-pattern-slate {
+    background-image: radial-gradient(rgba(148, 163, 184, 0.12) 1.2px, transparent 1.2px);
+  }
+  .aesthetic-glow {
+    position: relative;
+    overflow: hidden;
+  }
+  .aesthetic-glow::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  /* Ultra-glassmorphism */
+  .glass-premium {
+    backdrop-filter: blur(20px) saturate(180%);
+    background-color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+  }
+  .dark .glass-premium {
+    background-color: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(51, 65, 85, 0.5);
+  }
+}

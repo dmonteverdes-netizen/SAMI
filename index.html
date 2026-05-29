@@ -1,0 +1,83 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="SAMI" />
+    <meta name="theme-color" content="#4F46E5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0F172A" media="(prefers-color-scheme: dark)" />
+    <!-- SEO Primary -->
+    <title>SAMI — La plataforma financiera para tu MYPE en Perú</title>
+    <meta name="description" content="Controla tu contabilidad, construye tu SAMI Score crediticio y accede a créditos para tu bodega o MYPE en Perú. 100% digital, sin filas, sin papeleos." />
+    <meta name="keywords" content="créditos MYPE Perú, plataforma financiera bodega, SAMI Score, fintech Peru, préstamos pequeña empresa" />
+    <link rel="canonical" href="https://sami.pe" />
+    <!-- Open Graph (WhatsApp, Facebook, LinkedIn) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://sami.pe" />
+    <meta property="og:title" content="SAMI — La plataforma financiera para tu MYPE" />
+    <meta property="og:description" content="Contabilidad, Créditos y Educación en un solo lugar. SAMI te ordena para que el sistema financiero te quiera." />
+    <meta property="og:image" content="https://sami.pe/og-image.png" />
+    <meta property="og:locale" content="es_PE" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    <!-- Favicon — Shield emoji + SVG fallback -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>" />
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%234F46E5'/><text y='.85em' x='10' font-size='75'>🛡️</text></svg>" />
+    <!-- Structured Data (JSON-LD) — Google Rich Results -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "SAMI",
+      "applicationCategory": "FinanceApplication",
+      "operatingSystem": "Web, Android, iOS",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "PEN" },
+      "description": "Plataforma financiera para MYPEs peruanas: contabilidad, créditos y educación.",
+      "url": "https://sami.pe",
+      "provider": { "@type": "Organization", "name": "SAMI Fintech", "url": "https://sami.pe" },
+      "inLanguage": "es-PE",
+      "featureList": ["SAMI Score crediticio", "Marketplace de créditos", "Academia financiera", "Contabilidad automatizada"]
+    }
+    </script>
+    <!-- Google Fonts — Plus Jakarta Sans (más amigable y moderna que Inter) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+              mono: ['DM Mono', 'ui-monospace', 'monospace'],
+            }
+          }
+        }
+      }
+    </script>
+    <link rel="stylesheet" href="/index.css" />
+    <!-- Import Map -->
+    <script type="importmap">
+    {
+      "imports": {
+        "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+        "react/": "https://esm.sh/react@^19.2.3/",
+        "react": "https://esm.sh/react@^19.2.3",
+        "@google/genai": "https://esm.sh/@google/genai@^1.37.0"
+      }
+    }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "name": "SAMI AI Fintech",
+  "description": "An AI-powered chatbot for the SAMI platform, designed to assist micro and small enterprises in Peru with accounting, micro-loans, and business education, powered by the Gemini API.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
