@@ -16,6 +16,19 @@ Fecha: 2026-10-15. Objetivo: decidir qué piezas de SAMI conviene **reutilizar**
 | Core de préstamos (desembolso, cronograma, cobranza) | — | Solo si SAMI llegara a prestar con capital propio | [apache/fineract](https://github.com/apache/fineract) (Java) | Apache-2.0 | **No ahora**. Es sobredimensionado para un marketplace que solo deriva |
 | Validación RUC (`server.ts` `/api/v1/auth/validate-ruc`) | Módulo 11 + datos inventados | Cargar el **Padrón Reducido de SUNAT** (descarga pública gratuita) en BD local | [SUNAT padrón reducido](https://www.sunat.gob.pe/descargaPRR/mrc137_padron_reducido.html) | Dato público | **Usar** |
 
+## 1b. Solo licencia MIT (copiable sin obligaciones salvo mantener el aviso de copyright)
+
+| Módulo SAMI | Repo MIT | Stack | Estado | Cómo usarlo |
+|---|---|---|---|---|
+| Facturación SUNAT | [thegreenter/greenter](https://github.com/thegreenter/greenter) + [giansalex/lycet](https://github.com/giansalex/lycet) | PHP, Docker | Activo | Microservicio REST llamado desde `server.ts` |
+| Comprobante PDF / UI de factura | [al1abb/invoify](https://github.com/al1abb/invoify) (6.4k ★) | Next.js, TS, Tailwind, shadcn | Activo | Copiar plantillas, formulario (react-hook-form + zod) y PDF a `QuickSaleModal.tsx` |
+| Libro contable doble partida | [flash-oss/medici](https://github.com/flash-oss/medici) | Node, TS, MongoDB | Activo | Motor de asientos (requiere MongoDB) o como referencia para portarlo a Postgres |
+| Consulta RUC/DNI | [giansalex/peru-consult](https://github.com/giansalex/peru-consult) | PHP | Archivado (ago-2025) | Solo referencia; usar padrón reducido SUNAT |
+| Scorecard de crédito | [ShichenXie/scorecardpy](https://github.com/ShichenXie/scorecardpy) | Python | — | Servicio de scoring cuando haya datos |
+| Marketplace de créditos | Ninguno MIT útil (revisado [topic p2p-lending](https://github.com/topics/p2p-lending): blockchain, prototipos sin licencia) | — | — | Construir |
+
+Regla: un repo sin archivo LICENSE **no es libre de copiar** (todos los derechos reservados por defecto).
+
 ## 2. Benchmark de productos (estudiar, no clonar)
 
 | Producto | Qué estudiar | Link |
