@@ -6,7 +6,7 @@ import { InvoiceType, DocumentType } from '../../types';
 import { calculateTaxes, calculateTaxesSync } from '../../services/accountingService';
 import { maskRUC, maskCurrency } from '../../services/maskingUtils';
 import { isValidRUC } from '../../services/riskService';
-import { validateRucWithSunat } from '../../services/pseService';
+import { validateRucWithSunat, submitInvoiceToPse, PseResponse } from '../../core/services/pseService';
 import { Calendar, Filter, X, Info, Download, Lightbulb, Printer, Eye, FileText, CheckCircle2 } from 'lucide-react';
 import TermTooltip from '../glosario/TermTooltip';
 
@@ -122,6 +122,44 @@ const AccountingModule: React.FC<AccountingModuleProps> = ({ sales, purchases, o
     const [isRucValidating, setIsRucValidating] = useState(false);
     const [rucSunatError, setRucSunatError] = useState<string | null>(null);
     const [rucValidationNote, setRucValidationNote] = useState<string | null>(null);
+    const [emissionResults, setEmissionResults] = useState<Record<string, PseResponse>>({});
+    const [emittingId, setEmittingId] = useState<string | null>(null);
+
+    const handleEmit = async (inv: Invoice) => {
+        let customer: { name?: string } | undefined;
+        if (inv.documentType === DocumentType.FACTURA) {
+            const name = window.prompt('Razón social del cliente (déjelo vacío para tomarla del padrón SUNAT, si está cargado):', '');
+            if (name === null) return;
+            customer = name.trim() ? { name: name.trim() } : undefined;
+        }
+        setEmittingId(inv.id);
+        try {
+            const result = await submitInvoiceToPse(inv, customer);
+            setEmissionResults(prev => ({ ...prev, [inv.id]: result }));
+        } finally {
+            setEmittingId(null);
+        }
+    };
+
+    const renderEmissionStatus = (inv: Invoice) => {
+        const r = emissionResults[inv.id];
+        const isSimulated = r ? r.isSimulated : inv.emission?.isSimulated;
+        const accepted = r ? r.acceptedBySunat : inv.emission?.acceptedBySunat;
+        const pdfUrl = r ? r.pdfUrl : inv.emission?.pdfUrl;
+        if (r && !r.success) {
+            return <span role="alert" className="block text-[11px] text-red-700 dark:text-red-400 font-medium max-w-[220px] whitespace-normal">{r.errors?.join(' ') || 'No se pudo emitir.'}</span>;
+        }
+        if (!r && !inv.emission) return null;
+        if (isSimulated) {
+            return <span className="block text-[11px] text-amber-800 dark:text-amber-300 font-bold">Simulado — no enviado a SUNAT</span>;
+        }
+        return (
+            <span className={`block text-[11px] font-bold ${accepted ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>
+                {accepted ? 'Aceptado por SUNAT' : 'Enviado — revisar respuesta SUNAT'}
+                {pdfUrl && <> · <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="underline">PDF</a></>}
+            </span>
+        );
+    };
 
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -292,7 +330,7 @@ const AccountingModule: React.FC<AccountingModuleProps> = ({ sales, purchases, o
                 <div className="flex justify-between items-center">
                     <div>
                         <h2 className="text-xl font-black text-gray-900 uppercase">MI EMPRESA MYPE S.A.C.</h2>
-                        <p className="text-xs text-gray-600">RUC: 20601234567 | Registro Oficial de Comprobantes SUNAT</p>
+                        <p className="text-xs text-gray-600">Registro de comprobantes en SAMI — no reemplaza los registros electrónicos ante SUNAT</p>
                     </div>
                     <div className="text-right text-xs">
                         <p className="font-bold">Módulo Contable SAMI</p>
@@ -341,6 +379,19 @@ const AccountingModule: React.FC<AccountingModuleProps> = ({ sales, purchases, o
                                         <Printer size={16} />
                                         <span>Imprimir</span>
                                     </button>
+                                    {activeTab === InvoiceType.SALE && (
+                                        <button
+                                            onClick={() => handleEmit(inv)}
+                                            disabled={emittingId === inv.id}
+                                            className="ml-2 inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3.5 py-2 bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600 hover:text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-wait"
+                                            title="Emitir comprobante electrónico a través del PSE"
+                                            aria-label={`Emitir comprobante ${inv.series}-${inv.correlative}`}
+                                        >
+                                            <FileText size={16} />
+                                            <span>{emittingId === inv.id ? 'Emitiendo…' : 'Emitir'}</span>
+                                        </button>
+                                    )}
+                                    {renderEmissionStatus(inv)}
                                 </td>
                             </tr>
                         ))

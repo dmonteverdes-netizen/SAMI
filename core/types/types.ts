@@ -142,6 +142,20 @@ export interface Invoice {
   referencedCorrelative?: number;
   noteReason?: string;
   referencedInvoiceId?: string;
+  /** Resultado de la emisión electrónica vía PSE (solo ventas). */
+  emission?: InvoiceEmission;
+}
+
+export interface InvoiceEmission {
+  provider: 'NUBEFACT' | 'SIMULADO';
+  /** true = el comprobante NO fue enviado a SUNAT (Modo Demostración). */
+  isSimulated: boolean;
+  acceptedBySunat?: boolean;
+  sunatDescription?: string;
+  pdfUrl?: string;
+  xmlUrl?: string;
+  cdrUrl?: string;
+  emittedAt?: string;
 }
 
 export interface TaxSummary {

@@ -90,12 +90,21 @@ const NOT_IN_PADRON = 'No disponible en padrón reducido SUNAT';
 
 // ─── Emisión de comprobantes ───
 
-export const submitInvoiceToPse = async (invoice: Invoice): Promise<PseResponse> => {
+export interface EmissionCustomer {
+    name?: string;
+    address?: string;
+    email?: string;
+}
+
+/** Emite una venta ya registrada en SAMI (el backend decide si va a Nubefact o es simulada). */
+export const submitInvoiceToPse = async (invoice: Invoice, customer?: EmissionCustomer): Promise<PseResponse> => {
     try {
-        const { data } = await api.post<PseResponse>('/einvoice/emit', { invoice });
+        const { data } = await api.post<PseResponse>('/einvoice/emit', { invoiceId: invoice.id, customer });
         return data;
     } catch (error: any) {
-        const backendErrors = error?.response?.data?.errors;
+        const backendData = error?.response?.data;
+        if (backendData && typeof backendData.isSimulated === 'boolean') return backendData as PseResponse;
+        const backendErrors = backendData?.errors;
         return {
             success: false,
             isSimulated: true,

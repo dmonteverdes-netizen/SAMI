@@ -38,6 +38,7 @@ import chatRouter from "./server/routes/chat";
 import tasksRouter from "./server/routes/tasks";
 import loyaltyRouter from "./server/routes/loyalty";
 import rucRouter from "./server/routes/ruc";
+import einvoiceRouter from "./server/routes/einvoice";
 
 async function startServer() {
   const app = express();
@@ -173,6 +174,7 @@ async function startServer() {
   app.use("/api/v1/accounting", requirePhase(1), accountingRouter);
   app.use("/api/v1/expenses", requirePhase(1), expensesRouter);
   app.use("/api/v1/ruc", requirePhase(1), rucRouter);
+  app.use("/api/v1/einvoice", requirePhase(1), einvoiceRouter);
   app.use("/api/v1/ocr", requirePhase(1), ocrRouter);
   app.use("/api/v1/notifications", requirePhase(1), notificationsRouter);
 
