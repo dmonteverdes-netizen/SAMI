@@ -136,6 +136,20 @@ model Invoice {
   referencedCorrelative   Int?
   noteReason              String?
   referencedInvoiceId     String?
+  description             String?
+  paymentMethod           String?
+  aiCategorizedReason     String?
+
+  // Resultado de la emisión electrónica vía PSE (solo ventas).
+  // emissionSimulated = true cuando el comprobante NO fue enviado a SUNAT (sin credenciales de PSE).
+  emissionProvider        String?       // "NUBEFACT" | "SIMULADO"
+  emissionSimulated       Boolean?
+  sunatAccepted           Boolean?
+  sunatDescription        String?
+  pdfUrl                  String?
+  xmlUrl                  String?
+  cdrUrl                  String?
+  emittedAt               DateTime?
 
   // Strong relational foreign key linking to the registering SME
   smeId           String       @db.VarChar(11)
@@ -144,8 +158,33 @@ model Invoice {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
-  @@unique([series, correlative, smeId])
+  // Una compra se identifica también por el RUC del proveedor: dos proveedores pueden
+  // usar la misma serie-correlativo. La unicidad de ventas propias se valida en el repositorio.
+  @@unique([smeId, type, series, correlative, ruc])
+  @@index([smeId, type, issueDate])
   @@map("invoices")
+}
+
+// Padrón reducido del RUC publicado por SUNAT (descarga pública gratuita).
+// Se carga con: npm run padron:import -- <ruta a padron_reducido_ruc.zip|txt>
+model RucPadron {
+  ruc             String    @id @db.VarChar(11)
+  businessName    String
+  status          String    // ESTADO DEL CONTRIBUYENTE (ACTIVO, BAJA DE OFICIO, ...)
+  condition       String    // CONDICIÓN DE DOMICILIO (HABIDO, NO HABIDO, ...)
+  ubigeo          String    @db.VarChar(6)
+  address         String
+
+  @@map("ruc_padron")
+}
+
+model PadronImport {
+  id              String    @id @default(uuid())
+  sourceFile      String
+  rowCount        Int
+  importedAt      DateTime  @default(now())
+
+  @@map("padron_imports")
 }
 
 model ConsentGrant {

@@ -8,14 +8,20 @@ import {
 } from '../middleware/auth';
 import { logger } from '../../core/services/logger';
 import {
-  getPurchasesForBusiness,
-  savePurchaseForBusiness,
-  updatePurchaseForBusiness,
-  deletePurchaseForBusiness
-} from '../services/businessStore';
+  listInvoices,
+  createInvoice,
+  updateInvoice,
+  deleteInvoice,
+  DuplicateInvoiceError,
+  InvoiceOwner
+} from '../services/invoiceRepository';
 import { Invoice } from '../../core/types/types';
 
 const router = express.Router();
+
+function resolveOwner(req: express.Request): InvoiceOwner {
+  return { businessId: resolveBusinessId(req), ruc: req.user?.ruc };
+}
 
 function resolveBusinessId(req: express.Request): string {
   return req.user?.businessId || req.user?.ruc || req.user?.id || 'b1';
@@ -43,10 +49,10 @@ router.get(
   '/purchases',
   createAuthenticateToken(),
   requirePermission('PURCHASES_READ'),
-  (req, res) => {
+  async (req, res) => {
     try {
       const businessId = resolveBusinessId(req);
-      const purchases = getPurchasesForBusiness(businessId);
+      const purchases = await listInvoices(resolveOwner(req), 'purchase');
       res.json({
         success: true,
         count: purchases.length,
@@ -65,7 +71,7 @@ router.post(
   '/purchases',
   createAuthenticateToken(),
   requirePermission('PURCHASES_WRITE'),
-  (req, res) => {
+  async (req, res) => {
     try {
       const parsed = PurchaseItemSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -81,7 +87,7 @@ router.post(
         registeredAt: new Date().toISOString()
       } as unknown as Invoice;
 
-      const newRecord = savePurchaseForBusiness(businessId, purchaseData);
+      const newRecord = await createInvoice(resolveOwner(req), 'purchase', purchaseData);
       logger.info(`[SAMI Expenses] Compra registrada exitosamente para negocio ${businessId}: ${newRecord.id}`);
 
       res.status(201).json({
@@ -90,6 +96,9 @@ router.post(
         purchase: newRecord
       });
     } catch (err: any) {
+      if (err instanceof DuplicateInvoiceError) {
+        return res.status(409).json({ error: 'duplicate_invoice', message: err.message });
+      }
       logger.error('[SAMI Expenses] Error al registrar compra:', {}, err);
       res.status(500).json({ error: 'server_error', message: err.message });
     }
@@ -102,7 +111,7 @@ router.put(
   '/purchases/:id',
   createAuthenticateToken(),
   requirePermission('PURCHASES_WRITE'),
-  (req, res) => {
+  async (req, res) => {
     try {
       const parsed = UpdatePurchaseSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -111,7 +120,7 @@ router.put(
 
       const businessId = resolveBusinessId(req);
       const purchaseId = String(req.params.id);
-      const updated = updatePurchaseForBusiness(businessId, purchaseId, parsed.data as Partial<Invoice>);
+      const updated = await updateInvoice(resolveOwner(req), 'purchase', purchaseId, parsed.data as Partial<Invoice>);
 
       if (!updated) {
         return res.status(404).json({ error: 'not_found', message: 'Comprobante de compra no encontrado' });
@@ -135,11 +144,11 @@ router.delete(
   '/purchases/:id',
   createAuthenticateToken(),
   requirePermission('PURCHASES_WRITE'),
-  (req, res) => {
+  async (req, res) => {
     try {
       const businessId = resolveBusinessId(req);
       const purchaseId = String(req.params.id);
-      const deleted = deletePurchaseForBusiness(businessId, purchaseId);
+      const deleted = await deleteInvoice(resolveOwner(req), 'purchase', purchaseId);
 
       if (!deleted) {
         return res.status(404).json({ error: 'not_found', message: 'Comprobante de compra no encontrado' });
@@ -161,10 +170,10 @@ router.get(
   '/monitoring-status',
   createAuthenticateToken(),
   requirePermission('EXPENSES_MONITORING_READ'),
-  (req, res) => {
+  async (req, res) => {
     try {
       const businessId = resolveBusinessId(req);
-      const purchases = getPurchasesForBusiness(businessId);
+      const purchases = await listInvoices(resolveOwner(req), 'purchase');
       const anomalies = purchases.filter((p: any) => p.anomalyDetected);
 
       res.json({
@@ -185,7 +194,7 @@ router.post(
   '/simulate-spike',
   createAuthenticateToken(),
   requirePermission('EXPENSES_SIMULATE'),
-  (req, res) => {
+  async (req, res) => {
     try {
       const businessId = resolveBusinessId(req);
       const spikeAmount = req.body.amount || 25000;
@@ -205,7 +214,7 @@ router.post(
         simulated: true
       };
 
-      const saved = savePurchaseForBusiness(businessId, spikePurchase);
+      const saved = await createInvoice(resolveOwner(req), 'purchase', spikePurchase);
 
       res.json({
         success: true,
@@ -219,11 +228,11 @@ router.post(
 );
 
 // ─── 7. POST /api/v1/expenses/recurring-vendors ───
-router.post('/recurring-vendors', (req, res) => {
+router.post('/recurring-vendors', async (req, res) => {
   try {
     const { purchases } = req.body || {};
     const businessId = req.user?.businessId || 'b1';
-    const purchaseList = Array.isArray(purchases) ? purchases : getPurchasesForBusiness(businessId);
+    const purchaseList = Array.isArray(purchases) ? purchases : await listInvoices({ businessId, ruc: req.user?.ruc }, 'purchase');
     const vendorCounts: { [ruc: string]: { name: string; count: number; total: number } } = {};
 
     purchaseList.forEach((p: any) => {
@@ -254,11 +263,11 @@ router.post('/recurring-vendors', (req, res) => {
 });
 
 // ─── 8. POST /api/v1/expenses/cost-report ───
-router.post('/cost-report', (req, res) => {
+router.post('/cost-report', async (req, res) => {
   try {
     const { purchases, cashFlowStatus } = req.body || {};
     const businessId = req.user?.businessId || 'b1';
-    const purchaseList = Array.isArray(purchases) ? purchases : getPurchasesForBusiness(businessId);
+    const purchaseList = Array.isArray(purchases) ? purchases : await listInvoices({ businessId, ruc: req.user?.ruc }, 'purchase');
     const vendorTotals: { [ruc: string]: { name: string; total: number; count: number } } = {};
 
     purchaseList.forEach((p: any) => {

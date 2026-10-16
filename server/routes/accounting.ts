@@ -5,11 +5,13 @@ import { logger } from '../../core/services/logger';
 import { calculateTaxesSync } from '../../core/services/accountingService';
 import { createAuthenticateToken, requirePermission } from '../middleware/auth';
 import {
-  getSalesForBusiness,
-  saveSaleForBusiness,
-  updateSaleForBusiness,
-  deleteSaleForBusiness
-} from '../services/businessStore';
+  listInvoices,
+  createInvoice,
+  updateInvoice,
+  deleteInvoice,
+  DuplicateInvoiceError,
+  InvoiceOwner
+} from '../services/invoiceRepository';
 import { Invoice } from '../../core/types/types';
 
 const router = express.Router();
@@ -40,16 +42,19 @@ function resolveBusinessId(req: express.Request): string {
   return req.user?.businessId || req.user?.ruc || req.user?.id || 'b1';
 }
 
+function resolveOwner(req: express.Request): InvoiceOwner {
+  return { businessId: resolveBusinessId(req), ruc: req.user?.ruc };
+}
+
 // ─── 1. GET /api/v1/accounting/sales ───
 // Obtiene el historial de ventas del negocio autenticado
 router.get(
   '/sales',
   createAuthenticateToken(),
   requirePermission('SALES_READ'),
-  (req, res) => {
+  async (req, res) => {
     try {
-      const businessId = resolveBusinessId(req);
-      const sales = getSalesForBusiness(businessId);
+      const sales = await listInvoices(resolveOwner(req), 'sale');
       res.json({
         success: true,
         count: sales.length,
@@ -68,7 +73,7 @@ router.post(
   '/sales',
   createAuthenticateToken(),
   requirePermission('SALES_WRITE'),
-  (req, res) => {
+  async (req, res) => {
     try {
       const parsed = InvoiceItemSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -77,7 +82,7 @@ router.post(
 
       const businessId = resolveBusinessId(req);
       const saleData = parsed.data as Invoice;
-      const newSale = saveSaleForBusiness(businessId, saleData);
+      const newSale = await createInvoice(resolveOwner(req), 'sale', saleData);
 
       logger.info(`[Accounting Router] Venta registrada exitosamente para negocio ${businessId}: ${newSale.id}`);
       res.status(201).json({
@@ -86,6 +91,9 @@ router.post(
         sale: newSale
       });
     } catch (err: any) {
+      if (err instanceof DuplicateInvoiceError) {
+        return res.status(409).json({ error: 'duplicate_invoice', message: err.message });
+      }
       logger.error('[Accounting Router] Error al registrar venta:', {}, err);
       res.status(500).json({ error: 'server_error', message: err.message });
     }
@@ -98,16 +106,15 @@ router.put(
   '/sales/:id',
   createAuthenticateToken(),
   requirePermission('SALES_WRITE'),
-  (req, res) => {
+  async (req, res) => {
     try {
       const parsed = UpdateInvoiceSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: 'invalid_payload', details: parsed.error.format() });
       }
 
-      const businessId = resolveBusinessId(req);
       const saleId = String(req.params.id);
-      const updated = updateSaleForBusiness(businessId, saleId, parsed.data as Partial<Invoice>);
+      const updated = await updateInvoice(resolveOwner(req), 'sale', saleId, parsed.data as Partial<Invoice>);
 
       if (!updated) {
         return res.status(404).json({ error: 'not_found', message: 'Comprobante de venta no encontrado' });
@@ -131,11 +138,10 @@ router.delete(
   '/sales/:id',
   createAuthenticateToken(),
   requirePermission('SALES_WRITE'),
-  (req, res) => {
+  async (req, res) => {
     try {
-      const businessId = resolveBusinessId(req);
       const saleId = String(req.params.id);
-      const deleted = deleteSaleForBusiness(businessId, saleId);
+      const deleted = await deleteInvoice(resolveOwner(req), 'sale', saleId);
 
       if (!deleted) {
         return res.status(404).json({ error: 'not_found', message: 'Comprobante de venta no encontrado' });
