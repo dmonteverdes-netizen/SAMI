@@ -121,6 +121,7 @@ const AccountingModule: React.FC<AccountingModuleProps> = ({ sales, purchases, o
 
     const [isRucValidating, setIsRucValidating] = useState(false);
     const [rucSunatError, setRucSunatError] = useState<string | null>(null);
+    const [rucValidationNote, setRucValidationNote] = useState<string | null>(null);
 
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -133,6 +134,7 @@ const AccountingModule: React.FC<AccountingModuleProps> = ({ sales, purchases, o
                     setRucSunatError(null);
                     try {
                         const result = await validateRucWithSunat(ruc);
+                        setRucValidationNote(result.isSimulated ? `Validación de RUC simulada: ${result.sourceLabel}` : `Validado contra ${result.sourceLabel}`);
                         if (!result.active) {
                             setRucSunatError('El RUC no está ACTIVO en SUNAT.');
                         } else if (result.condition !== 'HABIDO') {
@@ -148,6 +150,7 @@ const AccountingModule: React.FC<AccountingModuleProps> = ({ sales, purchases, o
                 }
             } else {
                 setRucSunatError(null);
+                setRucValidationNote(null);
             }
         };
 
@@ -440,7 +443,7 @@ const AccountingModule: React.FC<AccountingModuleProps> = ({ sales, purchases, o
                                 {isRucValidating && (
                                     <div className="mt-1 flex items-center gap-2">
                                         <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                                        <span className="text-[10px] text-blue-500 font-medium">Validando con SUNAT...</span>
+                                        <span className="text-[10px] text-blue-500 font-medium">Validando RUC...</span>
                                     </div>
                                 )}
                                 {(fieldErrors.ruc || rucSunatError) && (
@@ -449,6 +452,11 @@ const AccountingModule: React.FC<AccountingModuleProps> = ({ sales, purchases, o
                                             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                                         </svg>
                                         {fieldErrors.ruc || rucSunatError}
+                                    </p>
+                                )}
+                                {rucValidationNote && !isRucValidating && !(fieldErrors.ruc || rucSunatError) && (
+                                    <p role="status" className="mt-1 text-[11px] text-amber-800 dark:text-amber-300 font-medium">
+                                        {rucValidationNote}
                                     </p>
                                 )}
                             </div>

@@ -1,63 +1,43 @@
-
-import { Invoice, DocumentType } from '../types/types';
+import type { Invoice } from '../types/types';
+import { api } from './api';
 
 /**
- * Service to interact with a PSE (Proveedor de Servicios Electrónicos) like Nubefact or Bizlinks.
- * This abstracts the direct connection to SUNAT which is highly complex in Peru.
+ * Cliente frontend de emisión electrónica y consulta de RUC.
+ *
+ * Reglas (AGENTS.md §3): todo dato que no provenga de una fuente oficial se marca con
+ * `isSimulated: true` y una etiqueta visible. Ningún secreto (token del PSE) vive aquí:
+ * la emisión real se hace en el backend (`POST /api/v1/einvoice/emit`), que usa Nubefact
+ * cuando hay credenciales configuradas y responde en Modo Demostración cuando no.
  */
 
-const PSE_API_URL = process.env.VITE_PSE_API_URL || 'https://api.pse-mock.pe/v1';
-const PSE_TOKEN = process.env.PSE_API_TOKEN;
+// ─── Tipos e Interfaces ───
+
+export type RucDataSource = 'PADRON_SUNAT' | 'SIMULADO';
+
+export const SIMULATED_LABEL = 'Modo Demostración — datos simulados, no provienen de SUNAT';
 
 export interface PseResponse {
     success: boolean;
-    sunat_code?: string;
-    sunat_message?: string;
-    external_id?: string;
-    pdf_url?: string;
-    xml_url?: string;
+    /** true cuando el comprobante NO fue enviado a SUNAT (sin credenciales de PSE). */
+    isSimulated: boolean;
+    provider: 'NUBEFACT' | 'SIMULADO';
+    environmentLabel: string;
+    acceptedBySunat?: boolean;
+    sunatCode?: string;
+    sunatMessage?: string;
+    externalId?: string;
+    pdfUrl?: string;
+    xmlUrl?: string;
+    cdrUrl?: string;
     errors?: string[];
 }
 
-export const submitInvoiceToPse = async (invoice: Invoice): Promise<PseResponse> => {
-    console.log(`[PSE] Submitting ${invoice.documentType} ${invoice.series}-${invoice.correlative} to PSE...`);
-    
-    // Simulate real API call
-    // In a real environment, this would be a POST to the PSE endpoint
-    try {
-        if (!PSE_TOKEN && !import.meta.env.DEV) {
-            throw new Error('PSE API Token missing in environment');
-        }
-
-        // Mocking the behavior for the MVP
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
-        return {
-            success: true,
-            sunat_code: '0',
-            sunat_message: 'La Factura ha sido aceptada',
-            external_id: `PSE-${Math.random().toString(36).substring(7).toUpperCase()}`,
-            pdf_url: `https://pse.pe/view/pdf/${invoice.id}`,
-            xml_url: `https://pse.pe/view/xml/${invoice.id}`
-        };
-    } catch (error: any) {
-        return {
-            success: false,
-            errors: [error.message]
-        };
-    }
-};
-
-export const validateRucWithSunat = async (ruc: string): Promise<{ active: boolean; condition: string }> => {
-    // Calling PSE/SUNAT endpoint to check RUC status
-    console.log(`[SUNAT] Validating RUC ${ruc}...`);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    return {
-        active: true,
-        condition: 'HABIDO'
-    };
-};
+export interface RucValidationResult {
+    active: boolean;
+    condition: string;
+    isSimulated: boolean;
+    sourceLabel: string;
+}
 
 export interface RucBusinessDetails {
     ruc: string;
@@ -79,9 +59,107 @@ export interface RucBusinessDetails {
     retainingAgent: boolean;
     agentOfPerception: boolean;
     creditLimit?: number;
+    /** true si la ficha fue generada en Modo Demostración. */
+    isSimulated: boolean;
+    dataSource: RucDataSource;
+    /** Texto para mostrar al usuario sobre el origen del dato. */
+    dataSourceLabel: string;
+    /** Fecha de carga del padrón reducido SUNAT usado (solo dataSource PADRON_SUNAT). */
+    padronDate?: string;
 }
 
-const KNOWN_RUCS: Record<string, Omit<RucBusinessDetails, 'ruc'>> = {
+type DemoRucRecord = Omit<RucBusinessDetails, 'ruc' | 'isSimulated' | 'dataSource' | 'dataSourceLabel' | 'padronDate'>;
+
+/** Respuesta de `GET /api/v1/ruc/:ruc` (ver server/routes/ruc.ts). */
+interface RucApiResponse {
+    found: boolean;
+    padronLoaded: boolean;
+    padronDate?: string;
+    data?: {
+        ruc: string;
+        businessName: string;
+        status: string;
+        condition: string;
+        ubigeo: string;
+        department: string;
+        address: string;
+    };
+}
+
+const NOT_IN_PADRON = 'No disponible en padrón reducido SUNAT';
+
+// ─── Emisión de comprobantes ───
+
+export const submitInvoiceToPse = async (invoice: Invoice): Promise<PseResponse> => {
+    try {
+        const { data } = await api.post<PseResponse>('/einvoice/emit', { invoice });
+        return data;
+    } catch (error: any) {
+        const backendErrors = error?.response?.data?.errors;
+        return {
+            success: false,
+            isSimulated: true,
+            provider: 'SIMULADO',
+            environmentLabel: 'Sin conexión con el servicio de emisión',
+            errors: Array.isArray(backendErrors) ? backendErrors : [error?.message || 'Error desconocido al emitir'],
+        };
+    }
+};
+
+// ─── Consulta de RUC ───
+
+/**
+ * Consulta el RUC en el backend. Devuelve:
+ * - `undefined` si el padrón SUNAT no está cargado o el backend no responde (usar demo).
+ * - `null` si el padrón está cargado y el RUC no existe en él.
+ * - la ficha real si existe.
+ */
+const fetchFromPadron = async (ruc: string): Promise<RucBusinessDetails | null | undefined> => {
+    try {
+        const { data } = await api.get<RucApiResponse>(`/ruc/${ruc}`, { validateStatus: s => s === 200 || s === 404 });
+        if (!data?.padronLoaded) return undefined;
+        if (!data.found || !data.data) return null;
+        const d = data.data;
+        return {
+            ruc: d.ruc,
+            businessName: d.businessName,
+            active: d.status === 'ACTIVO',
+            condition: d.condition,
+            address: d.address || NOT_IN_PADRON,
+            department: d.department || NOT_IN_PADRON,
+            province: NOT_IN_PADRON,
+            district: `Ubigeo ${d.ubigeo}`,
+            taxRegime: NOT_IN_PADRON,
+            ciiu: NOT_IN_PADRON,
+            mainActivity: NOT_IN_PADRON,
+            registrationDate: NOT_IN_PADRON,
+            phone: NOT_IN_PADRON,
+            email: NOT_IN_PADRON,
+            electronicBilling: false,
+            retainingAgent: false,
+            agentOfPerception: false,
+            isSimulated: false,
+            dataSource: 'PADRON_SUNAT',
+            dataSourceLabel: `Padrón reducido SUNAT${data.padronDate ? ` (cargado el ${data.padronDate})` : ''}`,
+            padronDate: data.padronDate,
+        };
+    } catch {
+        return undefined;
+    }
+};
+
+export const validateRucWithSunat = async (ruc: string): Promise<RucValidationResult> => {
+    const real = await fetchFromPadron(ruc);
+    if (real) {
+        return { active: real.active, condition: real.condition, isSimulated: false, sourceLabel: real.dataSourceLabel };
+    }
+    if (real === null) {
+        return { active: false, condition: 'NO ENCONTRADO', isSimulated: false, sourceLabel: 'Padrón reducido SUNAT' };
+    }
+    return { active: true, condition: 'HABIDO', isSimulated: true, sourceLabel: SIMULATED_LABEL };
+};
+
+const DEMO_RUCS: Record<string, DemoRucRecord> = {
     "20123456789": {
         businessName: "Corporación Textil Gamarra S.A.C.",
         active: true,
@@ -174,84 +252,88 @@ const KNOWN_RUCS: Record<string, Omit<RucBusinessDetails, 'ruc'>> = {
     }
 };
 
+
+/** PRNG determinista: el mismo RUC siempre produce la misma ficha demo. */
+const seededRandom = (seedText: string) => {
+    let seed = 0;
+    for (let i = 0; i < seedText.length; i++) seed = (seed * 31 + seedText.charCodeAt(i)) >>> 0;
+    return () => {
+        seed = (seed + 0x6D2B79F5) >>> 0;
+        let t = seed;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+};
+
+const buildDemoRecord = (ruc: string): DemoRucRecord => {
+    const rand = seededRandom(ruc);
+    const pick = <T,>(list: T[]): T => list[Math.floor(rand() * list.length)];
+    const isPerson = ruc.startsWith('10') || ruc.startsWith('15') || ruc.startsWith('17');
+
+    let businessName: string;
+    let ciiu: string;
+    let mainActivity: string;
+    if (isPerson) {
+        const firstNames = ["Roberto", "Maria", "Ana", "Carlos", "Luis", "Elena", "José", "Sofía"];
+        const lastNames = ["Quispe", "Flores", "Sánchez", "Rojas", "Díaz", "Chávez", "Torres", "Ramírez"];
+        businessName = `${pick(lastNames)} ${pick(lastNames)}, ${pick(firstNames)}`;
+        ciiu = "4771 - Comercio al por menor de prendas de vestir, calzado y artículos de cuero";
+        mainActivity = "Comercio de vestimenta y calzado por menor";
+    } else {
+        const prefixes = ["Corporación", "Servicios Integrales", "Distribuidora", "Inversiones", "Comercial"];
+        const midNames = ["Andina", "Pacífico", "Gamarra", "Nacional", "Horizonte", "Continental"];
+        const suffixes = ["S.A.C.", "S.A.", "E.I.R.L.", "S.R.L."];
+        businessName = `${pick(prefixes)} ${pick(midNames)} ${pick(suffixes)}`;
+        ciiu = "4690 - Venta al por mayor no especializada";
+        mainActivity = "Distribución y comercio general al por mayor";
+    }
+
+    const districts = [
+        { name: "Santiago de Surco", province: "Lima", department: "Lima" },
+        { name: "La Victoria", province: "Lima", department: "Lima" },
+        { name: "San Martín de Porres", province: "Lima", department: "Lima" },
+        { name: "Chiclayo", province: "Chiclayo", department: "Lambayeque" },
+        { name: "Arequipa", province: "Arequipa", department: "Arequipa" },
+        { name: "Trujillo", province: "Trujillo", department: "La Libertad" }
+    ];
+    const dist = pick(districts);
+    const registerYear = 2010 + Math.floor(rand() * 15);
+
+    return {
+        // El nombre lleva el sufijo para que nunca se confunda con una empresa real.
+        businessName: `${businessName} (DEMO)`,
+        active: true,
+        condition: "HABIDO",
+        address: `Av. Principal ${100 + Math.floor(rand() * 900)}, Urb. El Sol`,
+        department: dist.department,
+        province: dist.province,
+        district: dist.name,
+        taxRegime: pick(["MYPE Tributario (RMT)", "Régimen General (RG)", "Régimen Especial (RER)"]),
+        ciiu,
+        mainActivity,
+        registrationDate: `${registerYear}-06-${String(1 + Math.floor(rand() * 28)).padStart(2, '0')}`,
+        phone: "No disponible (Modo Demostración)",
+        email: "No disponible (Modo Demostración)",
+        electronicBilling: rand() > 0.1,
+        retainingAgent: rand() > 0.8,
+        agentOfPerception: rand() > 0.9
+    };
+};
+
 export const fetchRucDetails = async (ruc: string): Promise<RucBusinessDetails | null> => {
-    console.log(`[PSE] Fetching business details for RUC ${ruc} from SUNAT/PSE...`);
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1200));
+    if (!ruc || ruc.length !== 11 || !/^\d+$/.test(ruc)) return null;
 
-    if (KNOWN_RUCS[ruc]) {
-        return {
-            ruc,
-            ...KNOWN_RUCS[ruc]
-        };
-    }
+    const real = await fetchFromPadron(ruc);
+    if (real !== undefined) return real;
 
-    // Fallback generator for other RUCs so they look incredibly professional & functional
-    if (ruc && ruc.length === 11 && /^\d+$/.test(ruc)) {
-        // Check first digit/prefix to determine person or enterprise
-        const isPerson = ruc.startsWith('10') || ruc.startsWith('15') || ruc.startsWith('17');
-        
-        let businessName = "";
-        let ciiu = "";
-        let mainActivity = "";
-        const registerYear = Math.floor(2010 + Math.random() * 15);
-        const phonePrefix = "9" + Math.floor(10000000 + Math.random() * 89999999);
-        
-        if (isPerson) {
-            const firstNames = ["Roberto", "Maria", "Ana", "Carlos", "Luis", "Elena", "José", "Sofía"];
-            const lastNames = ["Quispe", "Flores", "Sánchez", "Rojas", "Díaz", "Chávez", "Torres", "Ramírez"];
-            const fName = firstNames[Math.floor(Math.random() * firstNames.length)];
-            const lName1 = lastNames[Math.floor(Math.random() * lastNames.length)];
-            const lName2 = lastNames[Math.floor(Math.random() * lastNames.length)];
-            businessName = `${lName1} ${lName2}, ${fName}`;
-            ciiu = "4771 - Comercio al por menor de prendas de vestir, calzado y artículos de cuero";
-            mainActivity = "Comercio de vestimenta y calzado por menor";
-        } else {
-            const prefixes = ["Compañía Minera", "Corporación", "Servicios Integrales", "Distribuidora", "Consorcio Industrial", "Inversiones", "Grupo Industrial"];
-            const midName = ["Andina", "Pacífico", "Gamarra", "Nacional", "Horizonte", "Continental", "Fénix", "Sagitario"];
-            const suffixes = ["S.A.C.", "S.A.", "E.I.R.L.", "S.R.L."];
-            const p = prefixes[Math.floor(Math.random() * prefixes.length)];
-            const m = midName[Math.floor(Math.random() * midName.length)];
-            const s = suffixes[Math.floor(Math.random() * suffixes.length)];
-            businessName = `${p} ${m} ${s}`;
-            ciiu = "4690 - Venta al por mayor no especializada";
-            mainActivity = "Distribución y comercio general al por mayor";
-        }
-
-        const districts = [
-            { name: "Santiago de Surco", province: "Lima", department: "Lima" },
-            { name: "La Victoria", province: "Lima", department: "Lima" },
-            { name: "Miraflores", province: "Lima", department: "Lima" },
-            { name: "San Martín de Porres", province: "Lima", department: "Lima" },
-            { name: "Chiclayo", province: "Chiclayo", department: "Lambayeque" },
-            { name: "Arequipa", province: "Arequipa", department: "Arequipa" },
-            { name: "Trujillo", province: "Trujillo", department: "La Libertad" }
-        ];
-        const dist = districts[Math.floor(Math.random() * districts.length)];
-        const regimes = ["MYPE Tributario (RMT)", "Régimen General (RG)", "Régimen Especial (RER)"];
-        const regime = regimes[Math.floor(Math.random() * regimes.length)];
-
-        return {
-            ruc,
-            businessName,
-            active: true,
-            condition: "HABIDO",
-            address: `Av. Principal ${Math.floor(100 + Math.random() * 900)}, Urb. El Sol`,
-            department: dist.department,
-            province: dist.province,
-            district: dist.name,
-            taxRegime: regime,
-            ciiu,
-            mainActivity,
-            registrationDate: `${registerYear}-06-${Math.floor(1 + Math.random() * 28).toString().padStart(2, '0')}`,
-            phone: `+51 ${phonePrefix.substring(0, 3)} ${phonePrefix.substring(3, 6)} ${phonePrefix.substring(6)}`,
-            email: `contacto@${businessName.toLowerCase().replace(/[^a-z0-9]/g, '')}.pe`,
-            electronicBilling: Math.random() > 0.1,
-            retainingAgent: Math.random() > 0.8,
-            agentOfPerception: Math.random() > 0.9
-        };
-    }
-
-    return null;
+    // Padrón SUNAT no cargado: Modo Demostración, rotulado como tal.
+    const demo = DEMO_RUCS[ruc] ?? buildDemoRecord(ruc);
+    return {
+        ruc,
+        ...demo,
+        isSimulated: true,
+        dataSource: 'SIMULADO',
+        dataSourceLabel: SIMULATED_LABEL,
+    };
 };

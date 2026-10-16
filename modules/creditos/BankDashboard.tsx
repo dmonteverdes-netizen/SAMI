@@ -596,10 +596,10 @@ const BankDashboard: React.FC = () => {
                                     <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-4">
                                         <Database size={20} />
                                     </div>
-                                    <h4 className="font-black mb-2 uppercase tracking-tight">SAMI Scoring Engine</h4>
+                                    <h4 className="font-black mb-2 uppercase tracking-tight">Motor de Salud Tributaria</h4>
                                     <p className="text-xs text-indigo-100 leading-relaxed font-semibold">
-                                        Motor de riesgos basado en data transaccional SUNAT en tiempo real. 
-                                        Predictor de cumplimiento de IGV y liquidez proyectada.
+                                        Indicadores derivados de los comprobantes registrados en SAMI
+                                        (integración en línea con SUNAT pendiente). La evaluación de riesgo la realiza cada entidad.
                                     </p>
                                 </div>
                             )}

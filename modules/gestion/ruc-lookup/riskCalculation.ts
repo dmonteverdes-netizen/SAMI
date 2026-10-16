@@ -14,6 +14,10 @@ export function calculateRiskMetrics(details: any, options?: {
   const positiveFactors: string[] = [];
   const warningFactors: string[] = [];
 
+  if (details.isSimulated) {
+    warningFactors.push('Datos del RUC simulados (Modo Demostración): estos factores no reflejan información real de SUNAT');
+  }
+
   // 1. Estado Activo en SUNAT
   if (details.active) {
     positiveFactors.push('Contribuyente ACTIVO en SUNAT');

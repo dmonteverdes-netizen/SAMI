@@ -644,10 +644,10 @@ const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                                 <span>{showHealthTutorial ? 'Ocultar Guía' : '💡 Guía Interactiva MYPE'}</span>
                             </button>
 
-                            {/* TODO: La UI debe aclarar que este dato es "declarado por el usuario / derivado de registros en SAMI, no verificado por SUNAT" */}
+                            {/* Dato derivado de registros en SAMI, no verificado por SUNAT (AGENTS.md §3). */}
                             <div className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-3.5 py-2 rounded-2xl border border-emerald-200 dark:border-emerald-800/80 text-xs font-black flex items-center gap-1.5">
                                 <Award size={16} />
-                                <span>SUNAT: {data.taxSummary?.complianceStatus || 'Al día'}</span>
+                                <span title="Derivado de comprobantes registrados en SAMI — no verificado por SUNAT">Registros SAMI: {data.taxSummary?.complianceStatus || 'Sin datos'}</span>
                             </div>
                         </div>
                     </div>

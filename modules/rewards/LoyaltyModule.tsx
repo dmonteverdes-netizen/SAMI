@@ -109,7 +109,7 @@ const LoyaltyModule: React.FC<LoyaltyModuleProps> = ({
                             <div className="flex justify-between items-start mb-6">
                                 <div>
                                     <h3 className="text-2xl font-black text-gray-800 dark:text-white mb-2">Academia SAMI</h3>
-                                    <p className="text-gray-500 dark:text-gray-400 max-w-md"> Tu aprendizaje mejora tu crédito. Gana Coins y sube tu Score por cada curso completado.</p>
+                                    <p className="text-gray-500 dark:text-gray-400 max-w-md"> Gana Coins por cada curso completado. Aprender te ayuda a ordenar tus finanzas; la decisión de crédito siempre la toma cada entidad.</p>
                                 </div>
                                 <div className="bg-yellow-100 text-yellow-600 p-4 rounded-2xl">
                                     <Trophy size={32} />

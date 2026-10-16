@@ -10,12 +10,13 @@ interface TaxSummaryCardProps {
 export const TaxSummaryCard: React.FC<TaxSummaryCardProps> = ({ summary, scoreResult }) => {
   const data = summary || scoreResult;
 
-  const avgSales = data?.avgMonthlySales || 25000;
-  const avgPurchases = data?.avgMonthlyPurchases || 10000;
-  const verifiedCount = data?.verifiedInvoicesCount || 15;
-  const formality = data?.formalityRatio || 100;
-  // TODO: La UI debe aclarar que este dato es "declarado por el usuario / derivado de registros en SAMI, no verificado por SUNAT"
-  const status = data?.complianceStatus || 'Al día';
+  // Sin valores inventados: si no hay datos se muestra 0 / "Sin datos".
+  const avgSales = data?.avgMonthlySales ?? 0;
+  const avgPurchases = data?.avgMonthlyPurchases ?? 0;
+  const verifiedCount = data?.verifiedInvoicesCount ?? 0;
+  const formality = data?.formalityRatio ?? 0;
+  // Dato derivado de registros en SAMI, no verificado por SUNAT (AGENTS.md §3).
+  const status = data?.complianceStatus || 'Sin datos';
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
@@ -29,12 +30,12 @@ export const TaxSummaryCard: React.FC<TaxSummaryCardProps> = ({ summary, scoreRe
               Información Tributaria Consolidada
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-              Expediente RVIE / RSE respaldado ante SUNAT
+              Derivado de comprobantes registrados en SAMI — no verificado por SUNAT
             </p>
           </div>
         </div>
         <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60 rounded-full text-xs font-extrabold">
-          ✓ SUNAT: {status}
+          Registros SAMI: {status}
         </span>
       </div>
 

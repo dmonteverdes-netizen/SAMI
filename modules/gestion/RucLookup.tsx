@@ -650,7 +650,7 @@ export const RucLookup: React.FC<RucLookupProps> = ({ isOpen, onClose, onSelectB
         if (isLoading) {
             setFetchingProgress(0);
             const startTime = Date.now();
-            const duration = 1200; // Matches 1200ms simulated latency in fetchRucDetails
+            const duration = 1200; // Duración estimada de la barra de progreso (la consulta real puede tardar más o menos)
             interval = setInterval(() => {
                 const elapsed = Date.now() - startTime;
                 const percent = Math.min(Math.floor((elapsed / duration) * 100), 100);
@@ -741,10 +741,8 @@ export const RucLookup: React.FC<RucLookupProps> = ({ isOpen, onClose, onSelectB
         try {
             const data = await fetchRucDetails(query);
             const endTime = performance.now();
-            const rawDuration = Math.round(endTime - startTime);
-            // Sunat queries usually have standard communication penalty, simulate realistic network baseline if too fast
-            const baselineDuration = rawDuration < 60 ? rawDuration + Math.floor(Math.random() * 120) + 140 : rawDuration;
-            setQueryLatency(baselineDuration);
+            // Latencia real medida (sin inflar artificialmente).
+            setQueryLatency(Math.round(endTime - startTime));
 
             if (data) {
                 let savedLimit = 0;
@@ -1443,6 +1441,12 @@ export const RucLookup: React.FC<RucLookupProps> = ({ isOpen, onClose, onSelectB
         doc.setFont('Helvetica', 'bold');
         doc.setTextColor(79, 70, 229); 
         doc.text(`RUC: ${result.ruc}`, 64, 72);
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(180, 83, 9);
+        doc.text(`Fuente: ${result.dataSourceLabel}`, 64, 85.5);
+        doc.setFontSize(9.5);
+        doc.setFont('Helvetica', 'bold');
 
         // Status pill: Activo / Habido
         doc.setFillColor(result.active ? 220 : 254, result.active ? 252 : 242, result.active ? 231 : 242); 
@@ -1601,7 +1605,7 @@ export const RucLookup: React.FC<RucLookupProps> = ({ isOpen, onClose, onSelectB
         doc.setFont('Helvetica', 'normal');
         doc.setFontSize(7);
         doc.text('AVISO LEGAL: El presente documento constituye una Ficha Informativa consolidada de forma automática por SAMI AI Fintech.', 15, 266);
-        doc.text('La exactitud de la información mostrada depende enteramente de la respuesta de la pasarela SUNAT en tiempo real y la veracidad de los datos aportados.', 15, 271);
+        doc.text(result.isSimulated ? 'Ficha generada en Modo Demostración: los datos son simulados y no provienen de SUNAT.' : 'Datos del padrón reducido SUNAT a la fecha de carga indicada; pueden no reflejar cambios posteriores.', 15, 271);
         doc.text('No constituye certificación tributaria directa de SUNAT y se expide únicamente para propósitos de análisis microfinanciero interno de crédito SAMI.', 15, 276);
 
         doc.setFont('Helvetica', 'bold');
@@ -2782,6 +2786,16 @@ export const RucLookup: React.FC<RucLookupProps> = ({ isOpen, onClose, onSelectB
                                             <h4 className={`text-base font-black uppercase tracking-tight transition-colors duration-200 ${
                                                 isModalDarkMode ? 'text-white' : 'text-slate-900'
                                             }`}>{result.businessName}</h4>
+                                            <span
+                                                role="status"
+                                                className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                                    result.isSimulated
+                                                        ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                                        : 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                                                }`}
+                                            >
+                                                Fuente: {result.dataSourceLabel}
+                                            </span>
                                             {result.tradeName && (
                                                 <div className="flex items-center gap-1.5 mt-1 animate-fade-in">
                                                     <span className={`text-[9px] uppercase font-mono font-black tracking-widest px-1.5 py-0.5 rounded border ${

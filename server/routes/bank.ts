@@ -366,7 +366,7 @@ router.get(
 
 /**
  * 4. POST /bank/generate-bundle
- * Generación de paquete de datos relacionales verificado por SUNAT con consentimiento demostrable (Ley N° 29733)
+ * Generación de paquete de datos (registrados en SAMI, no verificados por SUNAT) con consentimiento demostrable (Ley N° 29733)
  */
 router.post('/generate-bundle', async (req, res) => {
   try {
