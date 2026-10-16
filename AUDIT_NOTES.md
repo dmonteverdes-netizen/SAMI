@@ -155,8 +155,15 @@ Este documento registra de forma transparente las decisiones técnicas y compens
 - **Ruta a Producción:**
   - Mismo pendiente de arquitectura de datos unificada identificado para comprobantes de venta y compra: implementar persistencia real en base de datos relacional (PostgreSQL / Prisma) vinculada a la cuenta de la MYPE con sincronización API REST autenticada (`/api/v1/tasks`).
 
+---
 
-
-
-
-
+## 13. Correcciones de octubre 2026 (rama `sami-codigo-a-octubre-2026-exploraciones-github`)
+- **Corrección a §11:** `core/services/pseService.ts` (`fetchRucDetails`) seguía generando empresas al azar sin rótulo, y la emisión simulada respondía "La Factura ha sido aceptada". Ahora:
+  - La consulta de RUC usa el **padrón reducido SUNAT** (`GET /api/v1/ruc/:ruc`, tabla `ruc_padron`). Sin padrón cargado devuelve una ficha demo **determinista**, con `isSimulated: true`, sufijo "(DEMO)" e insignia visible "Modo Demostración".
+  - La emisión se hace en el backend (`POST /api/v1/einvoice/emit`) con **Nubefact** si hay credenciales; si no, responde `isSimulated: true` y nunca afirma aceptación de SUNAT.
+  - Se retiraron textos "verificado por SUNAT", "SAMI Scoring Engine" y "sube tu Score", y valores por defecto inventados en `TaxSummaryCard`.
+- **Persistencia:** ventas y compras se guardan en PostgreSQL (`server/services/invoiceRepository.ts`) cuando hay `DATABASE_URL` y RUC en el token; el almacén JSON queda solo para desarrollo. Las escrituras filtran por `smeId` (anti-IDOR) y los duplicados responden 409.
+- **Migraciones:** las dos migraciones anteriores no corrían en una base vacía (alteraban `smes` sin crearla; faltaba `migration_lock.toml`). Se reemplazaron por una migración inicial única (`20261016000000_init`). Si existiera una base creada con `prisma db push`, marcarla con `npx prisma migrate resolve --applied 20261016000000_init` tras comparar el esquema.
+- **Backend único:** PostgreSQL + Prisma. Se eliminaron `FIREBASE_BACKEND_GUIDE.md` y `firebase-applet-config.json` (sin uso en el código). Ver `BACKEND_GUIDE.md`.
+- **Higiene:** `package-lock.json` regenerado (`npm ci` fallaba); tests aislados en un directorio temporal (`SAMI_DATA_DIR`); almacenes JSON de ejecución fuera del control de versiones.
+- **Pendiente:** confirmar con el manual oficial de Nubefact los nombres de campos de respuesta; ampliar la emisión a detalle por ítem; las tareas (§12) siguen en `localStorage` + JSON.

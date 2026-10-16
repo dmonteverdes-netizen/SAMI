@@ -15,6 +15,10 @@ Las secciones 1–4 se escribieron sobre el código de `main` (versión antigua)
 | `UIT_VALUE = 5150` desactualizado | `UIT_2026_VALUE = 5500` + límite RMT 1,700 UIT | **Corregido** |
 | Padrón reducido SUNAT para RUC | Sigue simulado | **Sigue vigente** (ver abajo) |
 
+### Estado de los hallazgos (actualizado 2026-10-16)
+
+Los 7 hallazgos de abajo se corrigieron en la rama `sami-codigo-a-octubre-2026-exploraciones-github` (ver `AUDIT_NOTES.md` §13 y `BACKEND_GUIDE.md`), salvo el punto 6 en lo referido a las carpetas de reexportación (`services/`, `config/`, etc.), que se mantienen por compatibilidad. Además se encontró y corrigió que **las migraciones Prisma no corrían en una base vacía**.
+
 ### Hallazgos nuevos en la versión 35
 
 Verificado: `npm install --legacy-peer-deps` + `vitest run` = **132/132 tests OK**; `tsc --noEmit` = **0 errores**.
