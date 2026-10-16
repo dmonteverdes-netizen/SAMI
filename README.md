@@ -19,6 +19,12 @@ View your app in AI Studio: https://ai.studio/apps/4cc6fd17-efc9-4917-9e52-2bfa9
 3. Run the app:
    `npm run dev`
 
+## Pruebas automáticas
+
+[![CI](https://github.com/dmonteverdes-netizen/SAMI/actions/workflows/ci.yml/badge.svg)](https://github.com/dmonteverdes-netizen/SAMI/actions/workflows/ci.yml)
+
+Cada push a `main` y cada pull request ejecutan en GitHub Actions: instalación limpia, verificación de tipos, migraciones en una base PostgreSQL vacía, los tests (incluidos los de PostgreSQL real) y el build. Ver `.github/workflows/ci.yml`.
+
 ## Backend y base de datos
 
 SAMI usa Express + PostgreSQL (Prisma). Instalación, padrón RUC de SUNAT y emisión con Nubefact: ver **[BACKEND_GUIDE.md](BACKEND_GUIDE.md)**.

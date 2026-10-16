@@ -1,0 +1,75 @@
+# Pruebas automáticas de SAMI: corren en cada push a main y en cada pull request.
+# Verifica instalación limpia, tipos, tests (incluidos los de PostgreSQL real) y build.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    name: Tipos, tests y build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: sami
+          POSTGRES_PASSWORD: sami
+          POSTGRES_DB: sami_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sami"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Base exclusiva para CI; no contiene datos reales.
+      CI_DATABASE_URL: postgresql://sami:sami@localhost:5432/sami_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias (npm ci)
+        run: npm ci
+
+      - name: Generar cliente Prisma
+        run: npx prisma generate
+
+      - name: Verificar tipos (tsc)
+        run: npm run lint
+
+      - name: Aplicar migraciones en base vacía
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+
+      - name: Verificar que el esquema coincide con las migraciones
+        run: npx prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code
+        env:
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+
+      - name: Tests (unitarios, integración y PostgreSQL)
+        run: npm test
+        env:
+          TEST_DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+
+      - name: Build
+        run: npm run build
