@@ -2,6 +2,31 @@
 
 Fecha: 2026-10-15. Objetivo: decidir qué piezas de SAMI conviene **reutilizar** (open source con licencia compatible), cuáles **estudiar como benchmark** (productos cerrados) y cuáles **construir**.
 
+## 0. Actualización (2026-10-16): contraste con la versión nueva (`sami-ai-fintech_35.zip`)
+
+Las secciones 1–4 se escribieron sobre el código de `main` (versión antigua). La versión 35 cambia varias conclusiones:
+
+| Recomendación previa | Versión 35 | Nuevo veredicto |
+|---|---|---|
+| Greenter + Lycet para emitir a SUNAT | Decisión: emitir vía PSE (Nubefact/Bizlinks), ver `AGENTS.md` §1 | **Mantener la decisión PSE.** El PSE firma, envía y devuelve PDF/XML/CDR sin certificado ni homologación propios. Lycet queda como plan B si el costo por comprobante del PSE no cierra |
+| scorecardpy para "SAMI Score" | `AGENTS.md` §2 prohíbe "Score" y escalas tipo SBS; SAMI no evalúa riesgo | **Descartado.** Se calcula "Salud Tributaria" con reglas transparentes; el riesgo lo evalúa la entidad |
+| medici (MongoDB) como libro contable | Prisma + PostgreSQL | **Descartado** (stack distinto) |
+| Invoify para PDF de comprobante | El PDF oficial lo devuelve el PSE | **Solo para cotizaciones/proformas** |
+| `UIT_VALUE = 5150` desactualizado | `UIT_2026_VALUE = 5500` + límite RMT 1,700 UIT | **Corregido** |
+| Padrón reducido SUNAT para RUC | Sigue simulado | **Sigue vigente** (ver abajo) |
+
+### Hallazgos nuevos en la versión 35
+
+Verificado: `npm install --legacy-peer-deps` + `vitest run` = **132/132 tests OK**; `tsc --noEmit` = **0 errores**.
+
+1. **`core/services/pseService.ts` → `fetchRucDetails` inventa empresas al azar** (nombre, dirección, régimen, teléfono, email) para cualquier RUC de 11 dígitos, con el comentario *"so they look incredibly professional & functional"*, y **sin** `isSimulated`. Contradice `AGENTS.md` §3 y lo que `AUDIT_NOTES.md` §11 declara como ya resuelto.
+2. **`submitInvoiceToPse` (mock) devuelve `sunat_message: 'La Factura ha sido aceptada'`** con `sunat_code: '0'` sin rótulo de simulación. Mismo incumplimiento de `AGENTS.md` §3.
+3. **`package-lock.json` roto:** `npm ci` falla (`Cannot read properties of null (reading 'edgesOut')`). Solo instala con `npm install --legacy-peer-deps` sin lockfile. Cualquier CI o despliegue que use `npm ci` fallará. Regenerar el lockfile.
+4. **Persistencia partida en tres:** Prisma/PostgreSQL (`prisma/schema.prisma`, usado en auth/bank/consent), JSON en disco (`server/services/businessStore.ts`, `data/*.json`) y `localStorage` (ventas, compras, tareas según `AUDIT_NOTES.md` §12). Para la demo de tesis, unificar ventas/compras en el modelo `Invoice` de Prisma.
+5. **Backend indeciso en la documentación:** `FIREBASE_BACKEND_GUIDE.md` recomienda Firebase/Supabase, pero el código no usa Firebase (usa Express + JWT + Prisma). Elegir uno y borrar la otra guía.
+6. **Basura en el proyecto:** `sami-applet-complete.zip` (2 MB) dentro del repo y **corrupto**; carpetas raíz `services/`, `config/`, `context/`, `hooks/`, `types.ts` son reexportaciones de una línea hacia `core/` (deuda de migración, 10 módulos aún importan la ruta antigua). Ya no hay `Dockerfile`.
+7. Marketplace (`server/routes/credit.ts`): ofertas y factoring generados con socios mock y fórmulas fijas; correcto para demo, pero la UI debe rotularlo como simulado.
+
 ## 1. Mapa: módulo de SAMI → qué reutilizar
 
 | Módulo SAMI (archivo actual) | Estado hoy | Recomendación | Repo / fuente | Licencia | Veredicto |
