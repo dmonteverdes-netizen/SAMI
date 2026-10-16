@@ -42,11 +42,11 @@ describe('nubefactClient', () => {
     expect(() => buildNubefactPayload({ ...factura, documentType: DocumentType.NOTA_DE_CREDITO }, { name: 'X' })).toThrow(/modifica/);
   });
 
-  it('sin credenciales responde simulado y sin aceptación de SUNAT', async () => {
+  it('sin credenciales no envía nada y lo informa', async () => {
     const r = await emitWithNubefact(factura, { name: 'X' });
-    expect(r.isSimulated).toBe(true);
-    expect(r.provider).toBe('SIMULADO');
+    expect(r.success).toBe(false);
     expect(r.acceptedBySunat).toBeUndefined();
+    expect(r.errors?.[0]).toMatch(/NUBEFACT_API_URL/);
   });
 
   it('con credenciales envía el token y mapea la respuesta', async () => {

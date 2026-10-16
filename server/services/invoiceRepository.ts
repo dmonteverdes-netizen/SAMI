@@ -6,6 +6,7 @@
 import { Prisma } from '@prisma/client';
 import { Invoice, InvoiceType } from '../../core/types/types';
 import { getPrismaClient } from '../../core/services/db';
+import { EmissionProvider } from './emissionTypes';
 import {
   getSalesForBusiness,
   saveSaleForBusiness,
@@ -29,13 +30,16 @@ export interface InvoiceOwner {
 
 /** Resultado de emisión electrónica que se guarda junto a la venta. */
 export interface EmissionRecord {
-  provider: 'NUBEFACT' | 'SIMULADO';
+  provider: EmissionProvider;
   isSimulated: boolean;
   acceptedBySunat?: boolean;
   sunatDescription?: string;
   pdfUrl?: string;
   xmlUrl?: string;
   cdrUrl?: string;
+  signedXml?: string;
+  cdrZipBase64?: string;
+  documentHash?: string;
 }
 
 export type StoredInvoice = Invoice & {
@@ -102,6 +106,7 @@ function toDomain(row: InvoiceRow): StoredInvoice {
       pdfUrl: row.pdfUrl ?? undefined,
       xmlUrl: row.xmlUrl ?? undefined,
       cdrUrl: row.cdrUrl ?? undefined,
+      documentHash: row.documentHash ?? undefined,
       emittedAt: row.emittedAt?.toISOString(),
     };
   }
@@ -154,9 +159,17 @@ function duplicateMessage(kind: InvoiceKind, inv: Partial<Invoice>): string {
 
 // ─── Operaciones Públicas ───
 
+/** El XML firmado y el CDR se conservan en servidor; no viajan en los listados. */
+function withoutEmissionFiles(invoice: StoredInvoice): StoredInvoice {
+  if (!invoice.emission) return invoice;
+  const { signedXml: _xml, cdrZipBase64: _cdr, ...emission } = invoice.emission as EmissionRecord & { emittedAt?: string };
+  return { ...invoice, emission };
+}
+
 export async function listInvoices(owner: InvoiceOwner, kind: InvoiceKind): Promise<StoredInvoice[]> {
   if (!usesDatabase(owner)) {
-    return kind === 'sale' ? getSalesForBusiness(owner.businessId) : getPurchasesForBusiness(owner.businessId);
+    const list = kind === 'sale' ? getSalesForBusiness(owner.businessId) : getPurchasesForBusiness(owner.businessId);
+    return list.map(withoutEmissionFiles);
   }
   const rows = await getPrismaClient().invoice.findMany({
     where: { smeId: owner.ruc!, type: dbType(kind) },
@@ -246,6 +259,9 @@ export async function recordEmission(owner: InvoiceOwner, id: string, emission: 
       pdfUrl: emission.pdfUrl ?? null,
       xmlUrl: emission.xmlUrl ?? null,
       cdrUrl: emission.cdrUrl ?? null,
+      signedXml: emission.signedXml ?? null,
+      cdrZipBase64: emission.cdrZipBase64 ?? null,
+      documentHash: emission.documentHash ?? null,
       emittedAt,
     },
   });

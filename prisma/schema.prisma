@@ -142,13 +142,17 @@ model Invoice {
 
   // Resultado de la emisión electrónica vía PSE (solo ventas).
   // emissionSimulated = true cuando el comprobante NO fue enviado a SUNAT (sin credenciales de PSE).
-  emissionProvider        String?       // "NUBEFACT" | "SIMULADO"
+  emissionProvider        String?       // "NUBEFACT" | "SUNAT_DIRECTO" | "SIMULADO"
   emissionSimulated       Boolean?
   sunatAccepted           Boolean?
   sunatDescription        String?
   pdfUrl                  String?
   xmlUrl                  String?
   cdrUrl                  String?
+  // Envío directo a SUNAT: XML UBL firmado y CDR (ZIP en base64) que el emisor debe conservar.
+  signedXml               String?
+  cdrZipBase64            String?
+  documentHash            String?
   emittedAt               DateTime?
 
   // Strong relational foreign key linking to the registering SME

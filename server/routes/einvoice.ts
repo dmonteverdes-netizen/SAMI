@@ -1,15 +1,14 @@
 // ─── Emisión Electrónica de Comprobantes (PSE) ───
 // POST /api/v1/einvoice/emit  { invoiceId, customer? }
-// Emite una venta YA registrada en SAMI. Usa Nubefact si hay credenciales; si no, responde en
-// Modo Demostración (isSimulated: true) sin afirmar aceptación de SUNAT. El resultado se guarda
-// junto a la venta.
+// Emite una venta YA registrada en SAMI con el proveedor configurado (Nubefact, SUNAT directo vía
+// Lycet o Modo Demostración; ver emissionProvider.ts). Nunca afirma aceptación de SUNAT en modo
+// simulado. El resultado (y en envío directo, el XML firmado y el CDR) se guarda junto a la venta.
 import express from 'express';
 import { z } from 'zod';
 import { logger } from '../../core/services/logger';
-import { getPrismaClient } from '../../core/services/db';
 import { createAuthenticateToken, requirePermission } from '../middleware/auth';
 import { findSale, recordEmission, InvoiceOwner } from '../services/invoiceRepository';
-import { emitWithNubefact, NubefactCustomer } from '../services/nubefactClient';
+import { emitInvoice, completeCustomerFromPadron } from '../services/emissionProvider';
 
 const router = express.Router();
 
@@ -26,17 +25,6 @@ const EmitRequestSchema = z.object({
 
 function resolveOwner(req: express.Request): InvoiceOwner {
   return { businessId: req.user?.businessId || req.user?.ruc || req.user?.id || 'b1', ruc: req.user?.ruc };
-}
-
-/** Si el padrón SUNAT está cargado, completa la razón social y dirección del cliente. */
-async function completeCustomerFromPadron(ruc: string | undefined, customer: NubefactCustomer): Promise<NubefactCustomer> {
-  if (customer.name || !ruc || !process.env.DATABASE_URL) return customer;
-  try {
-    const row = await getPrismaClient().rucPadron.findUnique({ where: { ruc } });
-    return row ? { ...customer, name: row.businessName, address: customer.address || row.address } : customer;
-  } catch {
-    return customer;
-  }
 }
 
 router.post('/emit', createAuthenticateToken(), requirePermission('SALES_WRITE'), async (req, res) => {
@@ -56,7 +44,7 @@ router.post('/emit', createAuthenticateToken(), requirePermission('SALES_WRITE')
     }
 
     const customer = await completeCustomerFromPadron(sale.ruc, parsed.data.customer || {});
-    const result = await emitWithNubefact(sale, customer);
+    const result = await emitInvoice(sale, { customer, emitterRuc: owner.ruc });
 
     if (result.success) {
       await recordEmission(owner, sale.id, {
@@ -67,6 +55,9 @@ router.post('/emit', createAuthenticateToken(), requirePermission('SALES_WRITE')
         pdfUrl: result.pdfUrl,
         xmlUrl: result.xmlUrl,
         cdrUrl: result.cdrUrl,
+        signedXml: result.signedXml,
+        cdrZipBase64: result.cdrZipBase64,
+        documentHash: result.documentHash,
       });
     }
 
@@ -76,7 +67,9 @@ router.post('/emit', createAuthenticateToken(), requirePermission('SALES_WRITE')
       isSimulated: result.isSimulated,
       success: result.success,
     });
-    res.status(result.success ? 200 : 502).json(result);
+    // El XML y el CDR quedan guardados en la venta; no se envían al navegador.
+    const { signedXml: _xml, cdrZipBase64: _cdr, ...publicResult } = result;
+    res.status(result.success ? 200 : 502).json(publicResult);
   } catch (err: unknown) {
     logger.error('[E-Invoice] Error al emitir comprobante:', {}, err);
     const message = err instanceof Error ? err.message : 'Error interno';
