@@ -12,7 +12,8 @@
     "lint": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:migrate-dev": "prisma migrate dev",
-    "db:migrate-deploy": "prisma migrate deploy"
+    "db:migrate-deploy": "prisma migrate deploy",
+    "padron:import": "tsx scripts/import-padron-sunat.ts"
   },
   "dependencies": {
     "@google/genai": "^1.37.0",
