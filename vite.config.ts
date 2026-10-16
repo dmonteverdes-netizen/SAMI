@@ -1,4 +1,5 @@
 import path from 'path';
+import os from 'os';
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -18,6 +19,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
+    // Los almacenes JSON de prueba se escriben fuera del repositorio.
+    env: { SAMI_DATA_DIR: path.join(os.tmpdir(), 'sami-test-data') },
+    globalSetup: ['./tests/setup/cleanDataDir.ts'],
   }
 });
 

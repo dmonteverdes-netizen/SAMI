@@ -79,10 +79,11 @@ const ALL_PURPOSES: ConsentPurpose[] = [
   'INTEGRACION_PSE'
 ];
 
-const storeFilePath = path.join(process.cwd(), 'data', 'consent_store.json');
+const DATA_DIR = process.env.SAMI_DATA_DIR || path.join(process.cwd(), 'data');
+const storeFilePath = path.join(DATA_DIR, 'consent_store.json');
 
 function getStore(): LocalConsentStore {
-  const dir = path.join(process.cwd(), 'data');
+  const dir = DATA_DIR;
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -190,7 +191,7 @@ function getStore(): LocalConsentStore {
 
 function saveStore(store: LocalConsentStore): void {
   try {
-    const dir = path.join(process.cwd(), 'data');
+    const dir = DATA_DIR;
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }

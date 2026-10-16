@@ -1851,16 +1851,16 @@ export const TransparencyHub: React.FC<TransparencyHubProps> = ({ activeTab, onC
                     </div>
                   </div>
 
-                  {/* Document 2: Firebase Backend Guide */}
+                  {/* Document 2: Backend Guide (PostgreSQL + Prisma) */}
                   <div className="bg-slate-50 dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
                     <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-black text-xs uppercase font-mono">
-                      <Cpu size={16} /> Backend Sin Código (Firebase / Supabase)
+                      <Cpu size={16} /> Backend: PostgreSQL + Prisma
                     </div>
                     <p className="text-2xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                      Guía paso a paso para desplegar la base de datos Firestore y reglas de seguridad con 1 clic en Firebase Console, reduciendo semanas de trabajo backend.
+                      Cómo levantar PostgreSQL, aplicar las migraciones Prisma, cargar el padrón reducido de SUNAT y configurar el PSE (Nubefact).
                     </p>
                     <div className="bg-slate-100 dark:bg-slate-950 p-2.5 rounded-xl font-mono text-[10px] text-slate-600 dark:text-slate-300">
-                      📄 Archivo: <strong>FIREBASE_BACKEND_GUIDE.md</strong>
+                      📄 Archivo: <strong>BACKEND_GUIDE.md</strong>
                     </div>
                   </div>
 

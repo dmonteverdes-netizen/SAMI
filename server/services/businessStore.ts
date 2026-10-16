@@ -18,7 +18,8 @@ export interface BusinessStoreMap<T> {
 
 // ─── Constantes y Configuración ───
 
-const DATA_DIR = path.join(process.cwd(), 'data');
+// SAMI_DATA_DIR permite aislar los almacenes JSON (p. ej. en tests) sin tocar data/ del repositorio.
+const DATA_DIR = process.env.SAMI_DATA_DIR || path.join(process.cwd(), 'data');
 const SALES_FILE = path.join(DATA_DIR, 'sales_db.json');
 const PURCHASES_FILE = path.join(DATA_DIR, 'purchases_db.json');
 const TASKS_FILE = path.join(DATA_DIR, 'tasks_db.json');

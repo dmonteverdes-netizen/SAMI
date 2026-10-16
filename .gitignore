@@ -27,3 +27,7 @@ data/vapid_keys.json
 *.njsproj
 *.sln
 *.sw?
+
+# Almacenes JSON de ejecución (se regeneran desde data/seed al arrancar)
+data/*_db.json
+data/consent_store.json
