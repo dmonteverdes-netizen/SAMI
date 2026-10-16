@@ -1,0 +1,54 @@
+{
+  "b1": [
+    {
+      "id": "1viwirexx",
+      "title": "Declaración mensual IGV",
+      "description": "Presentar PDT 621 en SUNAT Virtual. Usar tu Clave SOL.",
+      "category": "SUNAT",
+      "status": "pending",
+      "dueDate": "2026-08-23T10:17:51.352Z",
+      "priority": "high",
+      "assignedTo": "u2"
+    },
+    {
+      "id": "77w7d9m3m",
+      "title": "Pago a Alicorp (proveedor)",
+      "description": "Pago de factura F001-00890 por S/ 3,500",
+      "category": "Pagos",
+      "status": "pending",
+      "dueDate": "2026-08-27T10:17:51.353Z",
+      "priority": "medium",
+      "assignedTo": "u2"
+    },
+    {
+      "id": "sf5ukqys2",
+      "title": "Actualizar stock bebidas",
+      "description": "Revisar inventario de gaseosas y jugos. Hacer pedido si es necesario.",
+      "category": "Inventario",
+      "status": "in_progress",
+      "dueDate": "2026-08-21T10:17:51.353Z",
+      "priority": "low",
+      "assignedTo": "u3"
+    },
+    {
+      "id": "57ywxl9tn",
+      "title": "Renovar licencia de funcionamiento",
+      "description": "Municipalidad de Los Olivos. Llevar: DNI, recibo de luz, formulario.",
+      "category": "Legal",
+      "status": "completed",
+      "dueDate": "2026-08-15T10:17:51.353Z",
+      "priority": "high",
+      "assignedTo": "u2"
+    }
+  ],
+  "bodega_don_carlos": [
+    {
+      "title": "Recepción de mercadería Distribuidora Lima",
+      "description": "",
+      "dueDate": "2026-05-13",
+      "status": "pending",
+      "priority": "medium",
+      "id": "task_1787221071691_nrd7c"
+    }
+  ]
+}

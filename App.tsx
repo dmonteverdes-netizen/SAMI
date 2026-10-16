@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import type { 
   Message, 
   Invoice, 
@@ -11,15 +11,12 @@ import type {
   Referral, 
   LoyaltyReward,
   CreditApplication,
-  Task 
+  Task,
+  TaxSummary 
 } from './types';
 import { Sender, InvoiceType, NotificationType, DocumentType, TaskStatus } from './types';
-import ChatWindow from './components/ChatWindow';
-import AccountingModule from './components/AccountingModule';
-import CreditMarketplace from './components/CreditMarketplace';
-import EducationModule from './components/EducationModule';
-import ExpenseModule from './components/ExpenseModule';
-import NotificationSettings from './components/NotificationSettings';
+import AccountingModule from './modules/ventas/AccountingModule';
+import NotificationSettings from './modules/gestion/NotificationSettings';
 import { 
   registerServiceWorker, 
   getNotificationPermissionStatus, 
@@ -27,20 +24,17 @@ import {
   showLocalPushNotification,
   startPeriodicSubscriptionCheck
 } from './services/pushNotificationService';
-import DeepProfilingModule from './components/DeepProfilingModule';
-import LoyaltyModule from './components/LoyaltyModule';
-import Dashboard from './components/Dashboard';
-import AdminDashboard from './components/AdminDashboard';
-import { ManagementModule } from './components/ManagementModule';
-import TwoFactorAuthModal from './components/TwoFactorAuthModal';
+import Dashboard from './modules/dashboard/Dashboard';
+import TwoFactorAuthModal from './modules/cuenta/TwoFactorAuthModal';
 import { sendMessageToGemini } from './services/geminiService';
-import { calculateTaxes } from './services/accountingService';
+import { calculateTaxes, validateInvoice, isDuplicateInvoice } from './services/accountingService';
 import { getCourses, getUserProgress } from './services/educationService';
 import { logAdminAction } from './services/auditService';
 import { encryptData, decryptData } from './services/encryptionService';
 import { detectUnusualExpense, sendCloudNotification, checkCreditEligibilityTrigger } from './services/notificationService';
-import { calculateSamiScore } from './services/creditService';
+import { getTaxFinancialSummary } from './services/creditService';
 import { createTransaction, sendReferralInvitation, POINTS_CONFIG } from './services/loyaltyService';
+import { api } from './core/services/api';
 import { 
   LayoutDashboard, 
   Calculator, 
@@ -68,23 +62,37 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import type { Chat } from '@google/genai';
-import { useAuth } from './context/AuthContext';
-import { useSecurity } from './context/SecurityContext';
+import type { ChatHistoryItem } from './services/geminiService';
+import { useAuth } from './core/context/AuthContext';
+import { useSecurity } from './core/context/SecurityContext';
 
-import Sidebar, { View } from './components/Sidebar';
-import WorkerDashboard from './components/WorkerDashboard';
-import OwnerDashboard from './components/OwnerDashboard';
-import BankDashboard from './components/BankDashboard';
-import TaskModule from './components/TaskModule';
-import ExchangeModule from './components/ExchangeModule';
+import Sidebar, { View } from './shared/layout/Sidebar';
 import { AppRole } from './types';
 
+// Carga diferida (Code Splitting / React.lazy) de vistas por rol y fases para optimizar rendimiento móvil (360px)
+const AdminDashboard = lazy(() => import('./modules/admin/AdminDashboard'));
+const BankDashboard = lazy(() => import('./modules/creditos/BankDashboard'));
+const WorkerDashboard = lazy(() => import('./modules/dashboard/WorkerDashboard'));
+const OwnerDashboard = lazy(() => import('./modules/dashboard/OwnerDashboard'));
+const ExpenseModule = lazy(() => import('./modules/compras/ExpenseModule'));
+const ManagementModule = lazy(() => import('./modules/gestion/ManagementModule'));
+const FinancialGlossary = lazy(() => import('./modules/glosario/FinancialGlossary'));
+
+// Módulos diferidos de fases 2, 3 y 4 (su código no viaja al navegador mientras están apagados)
+const CreditMarketplace = lazy(() => import('./modules/creditos/CreditMarketplace'));
+const DeepProfilingModule = lazy(() => import('./modules/perfil-riesgo/DeepProfilingModule'));
+const EducationModule = lazy(() => import('./modules/academia/EducationModule'));
+const TaskModule = lazy(() => import('./modules/tareas/TaskModule'));
+const LoyaltyModule = lazy(() => import('./modules/rewards/LoyaltyModule'));
+const ChatWindow = lazy(() => import('./modules/asistente/ChatWindow'));
+import PhaseEmptyState from './shared/ui/PhaseEmptyState';
+import { moduloDisponible, modulosDisponiblesParaRol } from './core/config/phases';
+
 import { MOCK_SALES, MOCK_PURCHASES, MOCK_TASKS, IS_DEMO_MODE } from './data/mockData';
-import BottomNav from './components/BottomNav';
-import QuickSaleModal from './components/QuickSaleModal';
-import FloatingActionButton from './components/FloatingActionButton';
-import OnboardingWizard from './components/OnboardingWizard';
+import BottomNav from './shared/layout/BottomNav';
+import QuickSaleModal from './modules/ventas/QuickSaleModal';
+import FloatingActionButton from './shared/layout/FloatingActionButton';
+import OnboardingWizard from './modules/cuenta/OnboardingWizard';
 
 // Helper para persistencia
 function usePersistentState<T>(key: string, initialValue: T) {
@@ -128,7 +136,31 @@ const App: React.FC = () => {
     open2faModal, 
     close2faModal 
   } = useSecurity();
-  const [currentView, setCurrentView] = useState<View>('dashboard');
+  const [currentView, setCurrentViewState] = useState<View>(() => {
+    return 'dashboard';
+  });
+
+  const setCurrentView = useCallback((view: View) => {
+    if (currentUser && !moduloDisponible(view, currentUser.role)) {
+      setCurrentViewState('dashboard');
+    } else {
+      setCurrentViewState(view);
+    }
+  }, [currentUser]);
+
+  // Si la vista actual no está permitida para el rol o fase activa, reorientar al dashboard
+  useEffect(() => {
+    if (currentUser && !moduloDisponible(currentView, currentUser.role)) {
+      setCurrentViewState('dashboard');
+    }
+  }, [currentUser, currentView]);
+
+  // Vista efectiva validada contra registro de módulos y fase activa
+  const activeView: View = useMemo(() => {
+    if (!currentUser) return 'dashboard';
+    if (!moduloDisponible(currentView, currentUser.role)) return 'dashboard';
+    return currentView;
+  }, [currentView, currentUser]);
 
   // Theme & Profile panels are defined here
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -179,39 +211,21 @@ const App: React.FC = () => {
   }[]>('in_app_notification_logs_v1', [
     {
       id: 'n-init-1',
-      title: 'Declaración PDT 621',
-      body: 'SAMI te recuerda: El periodo fiscal de Mayo ya está listo para declarar. Tu última fecha límite de SUNAT expira pronto.',
+      title: 'Declaración Tributaria',
+      body: 'SAMI te recuerda: Mantén al día tus comprobantes de venta y compra para emitir tus registros RVIE/RSE ante SUNAT.',
       type: 'SUNAT_DEADLINE',
       timestamp: 'Hace 1 hora',
       read: false,
       action: 'accounting'
     },
     {
-      id: 'n-init-2',
-      title: '¡Puntaje SAMI Score subió!',
-      body: '¡Grandioso! Tu SAMI Score se actualizó a 745 puntos. Tienes nuevas tasas preferenciales desde 15% anual en el Marketplace.',
-      type: 'SCORE_INCREASE',
-      timestamp: 'Ayer',
-      read: true,
-      action: 'credit'
-    },
-    {
       id: 'n-init-3',
-      title: 'Alerta: Consumo Inusual',
-      body: 'Hemos detectado una compra anormal de S/ 4,500 en Tecnología. Por favor valida si correspondía a insumos de tu negocio.',
+      title: 'Alerta: Compra Registrada',
+      body: 'Se ha registrado una compra de mercadería en el módulo de Compras. Revisa el balance operativo.',
       type: 'UNUSUAL_EXPENSE',
       timestamp: 'Hace 3 días',
       read: true,
       action: 'expenses'
-    },
-    {
-      id: 'n-init-4',
-      title: 'Certificado Descargado',
-      body: 'Tu certificado de salud financiera y perfilamiento profundo SBS ha sido compilado. Úsalo para calificar fuera de SAMI.',
-      type: 'SCORE_INCREASE',
-      timestamp: 'Hace 5 días',
-      read: true,
-      action: 'profiling'
     }
   ]);
 
@@ -285,7 +299,7 @@ const App: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isChatLoading, setIsChatLoading] = useState<boolean>(false);
   const [chatError, setChatError] = useState<string | null>(null);
-  const chatRef = useRef<Chat | null>(null);
+  const chatHistoryRef = useRef<ChatHistoryItem[]>([]);
 
   // Accounting & Credit State
   const [sales, setSales] = usePersistentState<Invoice[]>('sales', MOCK_SALES);
@@ -383,19 +397,105 @@ const App: React.FC = () => {
   const [referrals, setReferrals] = useState<Referral[]>([]);
 
   // Task State
-  const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
+  const [tasks, setTasks] = usePersistentState<Task[]>('tasks', MOCK_TASKS);
+  const [isOfflineFallback, setIsOfflineFallback] = useState(false);
+  const [isDataSyncing, setIsDataSyncing] = useState(false);
 
-  const handleAddTask = (taskData: Omit<Task, 'id'>) => {
-    const newTask: Task = { ...taskData, id: crypto.randomUUID() };
+  // ─── Sincronización con Servidor Central (Fuente de Verdad) ───
+  const syncServerData = useCallback(async () => {
+    if (!currentUser) return;
+    setIsDataSyncing(true);
+    let hadError = false;
+
+    // 1. Sincronizar Ventas
+    try {
+      const res = await api.get('/accounting/sales');
+      if (res.data?.sales && Array.isArray(res.data.sales)) {
+        setSales(res.data.sales);
+        localStorage.setItem('sami_backup_sales', JSON.stringify(res.data.sales));
+      }
+    } catch (err) {
+      console.warn('[SAMI DataSync] No se pudieron sincronizar ventas con el servidor, usando respaldo local:', err);
+      hadError = true;
+    }
+
+    // 2. Sincronizar Compras (solo para roles con permiso)
+    if (currentUser.role === AppRole.MYPE_ADMIN || currentUser.role === AppRole.SAMI_ADMIN) {
+      try {
+        const res = await api.get('/expenses/purchases');
+        if (res.data?.purchases && Array.isArray(res.data.purchases)) {
+          setPurchases(res.data.purchases);
+          localStorage.setItem('sami_backup_purchases', JSON.stringify(res.data.purchases));
+        }
+      } catch (err) {
+        console.warn('[SAMI DataSync] No se pudieron sincronizar compras con el servidor, usando respaldo local:', err);
+        hadError = true;
+      }
+    }
+
+    // 3. Sincronizar Tareas
+    if (currentUser.role === AppRole.MYPE_ADMIN || currentUser.role === AppRole.MYPE_WORKER || currentUser.role === AppRole.SAMI_ADMIN) {
+      try {
+        const res = await api.get('/tasks');
+        if (res.data?.tasks && Array.isArray(res.data.tasks)) {
+          setTasks(res.data.tasks);
+          localStorage.setItem('sami_backup_tasks', JSON.stringify(res.data.tasks));
+        }
+      } catch (err) {
+        console.warn('[SAMI DataSync] No se pudieron sincronizar tareas con el servidor, usando respaldo local:', err);
+        hadError = true;
+      }
+    }
+
+    setIsOfflineFallback(hadError);
+    setIsDataSyncing(false);
+  }, [currentUser, setSales, setPurchases, setTasks]);
+
+  useEffect(() => {
+    syncServerData();
+  }, [syncServerData]);
+
+  const handleAddTask = async (taskData: Omit<Task, 'id'>) => {
+    const tempId = crypto.randomUUID();
+    const newTask: Task = { ...taskData, id: tempId };
     setTasks(prev => [newTask, ...prev]);
+
+    try {
+      const res = await api.post('/tasks', taskData);
+      if (res.data?.task?.id) {
+        setTasks(prev => prev.map(t => t.id === tempId ? res.data.task : t));
+      }
+    } catch (err) {
+      console.error('[SAMI] Error guardando tarea en servidor. Revirtiendo estado:', err);
+      setTasks(prev => prev.filter(t => t.id !== tempId));
+      alert('No se pudo guardar la tarea en el servidor. El cambio local fue revertido.');
+    }
   };
 
-  const handleUpdateTask = (taskId: string, updates: Partial<Task>) => {
+  const handleUpdateTask = async (taskId: string, updates: Partial<Task>) => {
+    const previousTasks = [...tasks];
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+
+    try {
+      await api.put(`/tasks/${taskId}`, updates);
+    } catch (err) {
+      console.error('[SAMI] Error actualizando tarea en servidor. Revirtiendo estado:', err);
+      setTasks(previousTasks);
+      alert('No se pudo actualizar la tarea en el servidor. El cambio local fue revertido.');
+    }
   };
 
-  const handleDeleteTask = (taskId: string) => {
+  const handleDeleteTask = async (taskId: string) => {
+    const previousTasks = [...tasks];
     setTasks(prev => prev.filter(t => t.id !== taskId));
+
+    try {
+      await api.delete(`/tasks/${taskId}`);
+    } catch (err) {
+      console.error('[SAMI] Error eliminando tarea en servidor. Revirtiendo estado:', err);
+      setTasks(previousTasks);
+      alert('No se pudo eliminar la tarea en el servidor. El cambio local fue revertido.');
+    }
   };
 
   // Listen for tasks scheduled from other components (like monthly tax tables)
@@ -478,54 +578,91 @@ const App: React.FC = () => {
     setReferrals(prev => [newRef, ...prev]);
   };
 
-  // Cloud Architect: Monitor Score for Credit Eligibility Alerts
-  const lastScoreRef = useRef<number>(0);
-  const samiScore = useMemo(() => calculateSamiScore(sales), [sales]);
+  // Monitor Sales for Credit Eligibility Alerts
+  const lastSalesAvgRef = useRef<number>(0);
+  const [taxSummary, setTaxSummary] = useState<TaxSummary | null>(null);
+  const [isTaxSummaryLoading, setIsTaxSummaryLoading] = useState<boolean>(false);
+  const [scoreError, setScoreError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (samiScore) {
-      const oldScore = lastScoreRef.current;
-      const newScore = samiScore.score;
+    let isMounted = true;
+    const fetchTaxSummaryAsync = async () => {
+      setIsTaxSummaryLoading(true);
+      setScoreError(null);
+      try {
+        const result = await getTaxFinancialSummary(sales, purchases);
+        if (isMounted) {
+          setTaxSummary(result);
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          setScoreError(err.message || 'Error al obtener resumen tributario');
+        }
+      } finally {
+        if (isMounted) {
+          setIsTaxSummaryLoading(false);
+        }
+      }
+    };
+    fetchTaxSummaryAsync();
+    return () => {
+      isMounted = false;
+    };
+  }, [sales, purchases]);
+
+  useEffect(() => {
+    if (taxSummary) {
+      const oldSales = lastSalesAvgRef.current;
+      const newSales = taxSummary.avgMonthlySales;
       
-      const isEligibleTrigger = checkCreditEligibilityTrigger(oldScore, newScore);
+      const isEligibleTrigger = checkCreditEligibilityTrigger(oldSales, newSales);
       if (isEligibleTrigger) {
         if (notificationSettings.channels.whatsapp) {
           sendCloudNotification({
             to: notificationSettings.phoneNumber || '',
             channel: 'whatsapp',
-            templateId: 'tmpl_score_increase',
+            templateId: 'tmpl_credit_eligibility',
             placeholders: {
               name: currentUser?.name || 'Usuario',
-              score: newScore.toString(),
-              amount: (samiScore.avgMonthlySales * 1.5).toString(),
+              amount: newSales.toString(),
               link: 'https://sami.pe/creditos'
             }
           });
         }
         if (notificationSettings.channels.push) {
           showLocalPushNotification(
-            '📈 ¡Tu SAMI Score subió!',
-            `¡Felicidades, tu SAMI Score ha subido a ${newScore} puntos! Calificas para nuevas líneas de crédito.`
+            '📊 Pre-evaluación Crediticia Disponible',
+            `Con tus ventas de S/ ${newSales.toLocaleString()}, calificas a opciones de crédito MYPE de entidades aliadas.`
           );
         }
       }
-      lastScoreRef.current = newScore;
+      lastSalesAvgRef.current = newSales;
     }
-  }, [samiScore, notificationSettings, currentUser]);
+  }, [taxSummary, notificationSettings, currentUser]);
 
   // Education State
   const [courses, setCourses] = useState<Course[]>([]);
   const [userProgress, setUserProgress] = useState<UserProgress>({});
   
+  const handleAdminAccess = useCallback(() => {
+    if (currentUser?.role === AppRole.SAMI_ADMIN && !isAdminAuthenticated) {
+      open2faModal();
+    } else if (currentUser?.role?.startsWith('SAMI_')) {
+      setCurrentView('admin');
+    }
+  }, [currentUser, isAdminAuthenticated, open2faModal]);
+
   useEffect(() => {
     if (currentUser) {
       if (currentUser.role.startsWith('SAMI_')) {
         setCurrentView('admin');
-        handleAdminAccess(); // Trigger 2FA check on initial load for internal team
+        if (currentUser.role === AppRole.SAMI_ADMIN && !isAdminAuthenticated) {
+          open2faModal();
+        }
       } else if (currentUser.role.startsWith('BANK_')) {
-        setCurrentView('bank-api');
+        setCurrentView(moduloDisponible('bank-api', currentUser.role) ? 'bank-api' : 'dashboard');
       } else if (currentUser.role === AppRole.MYPE_WORKER) {
-        setCurrentView('tasks');
+        setCurrentView(moduloDisponible('tasks', currentUser.role) ? 'tasks' : 'dashboard');
       } else {
         setCurrentView('dashboard');
       }
@@ -577,8 +714,20 @@ const App: React.FC = () => {
     earnCoins(POINTS_CONFIG.COURSE_COMPLETED, `Lección completada: ${lessonId}`);
   };
 
-  const handleAddInvoice = (invoice: Omit<Invoice, 'id'>) => {
-      const newInvoice: Invoice = { ...invoice, id: crypto.randomUUID() };
+  const handleAddInvoice = async (invoice: Omit<Invoice, 'id'>) => {
+      const isPurchase = invoice.type === InvoiceType.PURCHASE;
+      const relevantList = isPurchase ? purchases : sales;
+
+      // Verificación de duplicidad de serie + correlativo en el registro contable
+      if (isDuplicateInvoice(invoice, relevantList)) {
+          const formattedNumber = `${invoice.series.toUpperCase()}-${String(invoice.correlative).padStart(8, '0')}`;
+          throw new Error(`Ya existe un comprobante con la serie y correlativo ${formattedNumber}. Verifica antes de registrar.`);
+      }
+
+      validateInvoice(invoice); 
+
+      const tempId = crypto.randomUUID();
+      const newInvoice: Invoice = { ...invoice, id: tempId };
       
       // Cloud Architect: Logic for Unusual Expense Alert
       if (invoice.type === InvoiceType.PURCHASE) {
@@ -605,10 +754,23 @@ const App: React.FC = () => {
           }
       }
 
-      calculateTaxes([], [ { ...invoice, id: 'temp' } ]); 
       if (invoice.type === InvoiceType.SALE) {
+          // Optimistic update
           setSales(prev => [...prev, newInvoice].sort((a,b) => Date.parse(b.issueDate) - Date.parse(a.issueDate)));
           earnCoins(POINTS_CONFIG.INVOICE_UPLOAD, `Venta cargada: ${newInvoice.series}-${newInvoice.correlative}`);
+          
+          try {
+              const res = await api.post('/accounting/sales', invoice);
+              if (res.data?.sale?.id) {
+                  setSales(prev => prev.map(s => s.id === tempId ? res.data.sale : s));
+              }
+          } catch (err) {
+              console.error('[SAMI] Error guardando venta en servidor. Revirtiendo estado:', err);
+              setSales(prev => prev.filter(s => s.id !== tempId));
+              alert('No se pudo sincronizar la venta con el servidor. El cambio local fue revertido.');
+              return;
+          }
+
           if (notificationSettings.channels.push) {
               showLocalPushNotification(
                   '💰 ¡Venta Registrada Exitosamente!',
@@ -616,18 +778,21 @@ const App: React.FC = () => {
               );
           }
       } else {
+          // Optimistic update
           setPurchases(prev => [...prev, newInvoice].sort((a,b) => Date.parse(b.issueDate) - Date.parse(a.issueDate)));
           earnCoins(POINTS_CONFIG.INVOICE_UPLOAD, `Compra cargada: ${newInvoice.series}-${newInvoice.correlative}`);
           
-          // Sincronizar con la base de datos persistente y encolar en el Daemon de monitoreo en segundo plano
-          fetch('/api/v1/expenses/purchases', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(invoice)
-          })
-          .then(res => res.json())
-          .then(data => console.log('[SAMI] Compra sincronizada con el daemon supervisor:', data))
-          .catch(err => console.error('[SAMI] Error sincronizando compra con daemon:', err));
+          try {
+              const res = await api.post('/expenses/purchases', invoice);
+              if (res.data?.purchase?.id) {
+                  setPurchases(prev => prev.map(p => p.id === tempId ? res.data.purchase : p));
+              }
+          } catch (err) {
+              console.error('[SAMI] Error guardando compra en servidor. Revirtiendo estado:', err);
+              setPurchases(prev => prev.filter(p => p.id !== tempId));
+              alert('No se pudo sincronizar la compra con el servidor. El cambio local fue revertido.');
+              return;
+          }
 
           if (notificationSettings.channels.push) {
               showLocalPushNotification(
@@ -655,12 +820,12 @@ const App: React.FC = () => {
     setIsChatLoading(true);
     setChatError(null);
     try {
-      const { chat, response } = await sendMessageToGemini(text, chatRef.current);
-      chatRef.current = chat;
+      const { chat, response } = await sendMessageToGemini(text, chatHistoryRef.current);
+      chatHistoryRef.current = chat;
       const botMessage: Message = { id: Date.now().toString() + '-bot', text: response, sender: Sender.BOT };
       setMessages((prevMessages) => [...prevMessages, botMessage]);
-    } catch (err) {
-      const errorMessage = 'Lo siento, ocurrió un error al procesar tu solicitud. Por favor, inténtalo de nuevo más tarde.';
+    } catch (err: any) {
+      const errorMessage = err?.message || 'Lo siento, ocurrió un error al procesar tu solicitud. Por favor, inténtalo de nuevo más tarde.';
       setChatError(errorMessage);
       const errorBotMessage: Message = { id: Date.now().toString() + '-error', text: errorMessage, sender: Sender.BOT };
       setMessages((prevMessages) => [...prevMessages, errorBotMessage]);
@@ -670,14 +835,7 @@ const App: React.FC = () => {
     }
   }, []);
   
-  const handleAdminAccess = () => {
-    if (currentUser?.role === AppRole.SAMI_ADMIN && !isAdminAuthenticated) {
-      open2faModal();
-    } else if (currentUser?.role.startsWith('SAMI_')) {
-      setCurrentView('admin');
-    }
-  };
-  
+
   const handle2faSuccess = () => {
     if(!currentUser) return;
     logAdminAction(currentUser, 'Inicio de sesión de administrador exitoso (2FA verificado)');
@@ -753,8 +911,19 @@ const App: React.FC = () => {
     return null; // Should be redirected by router
   }
 
+  // Si el rol autenticado no tiene ningún módulo disponible en la fase activa, mostrar estado vacío institucional
+  const availableModulesForRole = modulosDisponiblesParaRol(currentUser.role);
+  if (availableModulesForRole.length === 0) {
+    return (
+      <PhaseEmptyState 
+        currentUser={currentUser} 
+        onLogout={logout} 
+      />
+    );
+  }
+
   const pendingAlerts = alerts.filter(a => a.status === 'pending').length;
-  const isCreditEligible = samiScore && samiScore.score >= 580;
+  const isCreditEligible = taxSummary && taxSummary.avgMonthlySales >= 3000;
   
   const today = new Date().toISOString().split('T')[0];
   const pendingTasks = tasks.filter(t => t.status === 'pending');
@@ -764,6 +933,19 @@ const App: React.FC = () => {
 
   return (
     <div className="bg-gray-50 dark:bg-gray-950 font-sans text-gray-900 dark:text-gray-100 w-full min-h-screen flex overflow-hidden">
+      {/* ── OFFLINE FALLBACK BANNER ── */}
+      {isOfflineFallback && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-amber-600 text-white text-xs py-2 px-4 text-center font-bold flex items-center justify-center gap-3 shadow-md">
+          <span>⚠️ Modo sin conexión / Respaldo local: No se pudo conectar con el servidor central. Mostrando datos de la última copia guardada localmente.</span>
+          <button 
+            onClick={() => syncServerData()}
+            className="px-2 py-0.5 bg-white text-amber-900 rounded font-black hover:bg-amber-100 transition-colors cursor-pointer text-[11px]"
+          >
+            {isDataSyncing ? 'Sincronizando...' : 'Reintentar sincronización'}
+          </button>
+        </div>
+      )}
+
       {/* ── DEMO MODE FLOATING TOAST ── */}
       {IS_DEMO_MODE && !isDemoBannerDismissed && (
         <div className="fixed bottom-6 right-6 z-[9999] bg-[#FFFBEB] dark:bg-amber-950/90 border border-amber-200/60 dark:border-amber-900/40 p-4 rounded-2xl shadow-2xl flex items-start gap-3 max-w-sm font-sans animate-fadeIn">
@@ -910,40 +1092,42 @@ const App: React.FC = () => {
         <main id="main-content" role="main" className="flex-grow overflow-y-auto custom-scrollbar relative pb-24 lg:pb-0 pt-0">
           
           {/* Floating Task Reminders */}
-          <div className="fixed top-20 right-6 z-50 flex flex-col gap-3 pointer-events-none">
-            <AnimatePresence>
-                {activeTaskReminders.map((reminder) => (
-                    <motion.div
-                        key={reminder.taskId}
-                        initial={{ opacity: 0, x: 50, scale: 0.9 }}
-                        animate={{ opacity: 1, x: 0, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.1 } }}
-                        className="pointer-events-auto bg-white dark:bg-gray-800 border-l-4 border-amber-500 shadow-2xl rounded-2xl p-4 flex items-start gap-4 min-w-[320px] max-w-sm"
-                    >
-                        <div className="bg-amber-50 dark:bg-amber-900/20 p-2 rounded-xl text-amber-600">
-                            <Bell size={20} />
-                        </div>
-                        <div className="flex-grow">
-                            <h4 className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-tight">Recordatorio de Tarea</h4>
-                            <p className="text-sm font-bold text-gray-600 dark:text-gray-300 mt-1">{reminder.title}</p>
-                            <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mt-2 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-lg inline-block">
-                                {reminder.daysRemain === 0 ? 'Vence Hoy' : reminder.daysRemain === 1 ? 'Vence Mañana' : `Vence en ${reminder.daysRemain} días`}
-                            </p>
-                        </div>
-                        <button 
-                            onClick={() => setActiveTaskReminders(prev => prev.filter(r => r.taskId !== reminder.taskId))}
-                            className="text-gray-300 hover:text-gray-500 transition-colors"
-                            aria-label="Cerrar recordatorio"
-                        >
-                            <X size={16} />
-                        </button>
-                    </motion.div>
-                ))}
-            </AnimatePresence>
-          </div>
+          {currentUser && moduloDisponible('tasks', currentUser.role) && (
+            <div className="fixed top-20 right-6 z-50 flex flex-col gap-3 pointer-events-none">
+              <AnimatePresence>
+                  {activeTaskReminders.map((reminder) => (
+                      <motion.div
+                          key={reminder.taskId}
+                          initial={{ opacity: 0, x: 50, scale: 0.9 }}
+                          animate={{ opacity: 1, x: 0, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.1 } }}
+                          className="pointer-events-auto bg-white dark:bg-gray-800 border-l-4 border-amber-500 shadow-2xl rounded-2xl p-4 flex items-start gap-4 min-w-[320px] max-w-sm"
+                      >
+                          <div className="bg-amber-50 dark:bg-amber-900/20 p-2 rounded-xl text-amber-600">
+                              <Bell size={20} />
+                          </div>
+                          <div className="flex-grow">
+                              <h4 className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-tight">Recordatorio de Tarea</h4>
+                              <p className="text-sm font-bold text-gray-600 dark:text-gray-300 mt-1">{reminder.title}</p>
+                              <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mt-2 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-lg inline-block">
+                                  {reminder.daysRemain === 0 ? 'Vence Hoy' : reminder.daysRemain === 1 ? 'Vence Mañana' : `Vence en ${reminder.daysRemain} días`}
+                              </p>
+                          </div>
+                          <button 
+                              onClick={() => setActiveTaskReminders(prev => prev.filter(r => r.taskId !== reminder.taskId))}
+                              className="text-gray-300 hover:text-gray-500 transition-colors"
+                              aria-label="Cerrar recordatorio"
+                          >
+                              <X size={16} />
+                          </button>
+                      </motion.div>
+                  ))}
+              </AnimatePresence>
+            </div>
+          )}
 
           {/* Global Task Notification Banner */}
-          {currentUser && (currentUser.role === AppRole.MYPE_ADMIN || currentUser.role === AppRole.MYPE_WORKER) && (pendingTasksCount > 0) && !isTaskBannerDismissed && (
+          {currentUser && (currentUser.role === AppRole.MYPE_ADMIN || currentUser.role === AppRole.MYPE_WORKER) && moduloDisponible('tasks', currentUser.role) && (pendingTasksCount > 0) && !isTaskBannerDismissed && (
             <div className="px-6 py-3 bg-indigo-50 dark:bg-indigo-900/10 border-b border-indigo-100 dark:border-indigo-500/20 flex items-center justify-between relative z-25">
               <div className="flex items-center gap-3">
                 <div className={`p-1.5 rounded-lg ${overdueTasksCount > 0 ? 'bg-red-500 text-white animate-pulse' : 'bg-indigo-500 text-white'}`}>
@@ -984,194 +1168,190 @@ const App: React.FC = () => {
               transition={{ duration: 0.2 }}
               className="min-h-full"
             >
-              {currentView === 'dashboard' && (
-                <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN, AppRole.MYPE_WORKER]}>
-                  {currentUser.role === AppRole.MYPE_WORKER && (
-                    <WorkerDashboard 
-                      tasks={tasks} 
-                      onQuickSaleClick={() => setIsQuickSaleOpen(true)}
-                      onAddInvoice={handleAddInvoice}
-                    />
-                  )}
-                  {currentUser.role === AppRole.MYPE_ADMIN && (
-                    <div className="container mx-auto p-6 md:p-10 max-w-7xl">
-                      <OwnerDashboard data={{
-                          netCashFlow: { 
-                            income: sales.reduce((a, b) => a + b.totalAmount, 0), 
-                            expenses: purchases.reduce((a, b) => a + b.totalAmount, 0) 
-                          },
-                          taxStatus: 'Al día',
-                          nextDueDate: { date: '2026-05-15', description: 'Declaración Mensual SUNAT' },
-                          samiScore: samiScore,
-                          maxLoanAmount: 15000,
-                          insights: [
-                            { id: '1', text: 'Tu score subió +12 puntos por pagar tus facturas a tiempo.', type: 'success' },
-                            { id: '2', text: 'Vencimiento de IGV en 3 días. Tienes liquidez suficiente.', type: 'info' }
-                          ]
-                      }} 
-                      creditApplications={creditApplications}
-                      tasks={tasks}
-                      purchases={purchases}
+              <Suspense
+                fallback={
+                  <div 
+                    role="status" 
+                    aria-live="polite" 
+                    className="flex flex-col items-center justify-center min-h-[50vh] w-full p-8 text-center"
+                  >
+                    <div className="w-10 h-10 border-3 border-indigo-200 dark:border-indigo-900 border-t-indigo-600 dark:border-t-indigo-400 rounded-full animate-spin mb-4" />
+                    <p className="text-xs font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">Cargando módulo...</p>
+                    <span className="sr-only">Cargando contenido de la vista seleccionada</span>
+                  </div>
+                }
+              >
+                {activeView === 'dashboard' && (
+                  <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN, AppRole.MYPE_WORKER]}>
+                    {currentUser.role === AppRole.MYPE_WORKER && (
+                      <WorkerDashboard 
+                        tasks={tasks} 
+                        sales={sales}
+                        onQuickSaleClick={() => setIsQuickSaleOpen(true)}
+                        onAddInvoice={handleAddInvoice}
+                      />
+                    )}
+                    {currentUser.role === AppRole.MYPE_ADMIN && (
+                      <div className="container mx-auto p-6 md:p-10 max-w-7xl">
+                        <OwnerDashboard data={{
+                            netCashFlow: { 
+                              income: sales.reduce((a, b) => a + b.totalAmount, 0), 
+                              expenses: purchases.reduce((a, b) => a + b.totalAmount, 0) 
+                            },
+                            taxStatus: 'Al día',
+                            nextDueDate: { date: '2026-05-15', description: 'Declaración Mensual SUNAT' },
+                            taxSummary: taxSummary,
+                            maxLoanAmount: 15000,
+                            insights: [
+                              { id: '1', text: 'Excelente nivel de emisión de comprobantes RVIE/RSE.', type: 'success' },
+                              { id: '2', text: 'Vencimiento de IGV según cronograma SUNAT. Tienes liquidez suficiente.', type: 'info' }
+                            ]
+                        }} 
+                        creditApplications={creditApplications}
+                        tasks={tasks}
+                        purchases={purchases}
+                        sales={sales}
+                        isFinanceCertified={isFinanceCertified}
+                        samiCoins={samiCoins}
+                        userRole={currentUser.role}
+                        onNavigate={(view) => {
+                          if (view === 'notifications') {
+                            setIsProfileOpen(true);
+                          } else if (moduloDisponible(view, currentUser.role)) {
+                            setCurrentView(view);
+                          }
+                        }}
+                        onQuickSaleClick={() => setIsQuickSaleOpen(true)}
+                        onAddTask={handleAddTask}
+                        /> 
+                      </div>
+                    )}
+                  </ProtectedView>
+                )}
+
+                {activeView === 'tasks' && (
+                   <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN, AppRole.MYPE_WORKER]}>
+                      <TaskModule 
+                        tasks={tasks}
+                        onAddTask={handleAddTask}
+                        onUpdateTask={handleUpdateTask}
+                        onDeleteTask={handleDeleteTask}
+                      />
+                   </ProtectedView>
+                )}
+
+                {activeView === 'bank-api' && ( 
+                  <ProtectedView allowedRoles={[AppRole.BANK_ADMIN, AppRole.BANK_ANALYST, AppRole.BANK_SUPERVISOR]}>
+                    <BankDashboard /> 
+                  </ProtectedView>
+                )}
+                
+                {activeView === 'chat' && (
+                   <div className="w-full h-full flex items-center justify-center p-4 md:p-8">
+                      <ChatWindow 
+                        messages={messages} 
+                        isLoading={isChatLoading} 
+                        onSendMessage={handleSendMessage} 
+                        onViewChange={(view) => setCurrentView(view)}
+                        error={chatError} 
+                      />
+                   </div>
+                )}
+
+                {activeView === 'accounting' && ( 
+                  <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN, AppRole.MYPE_WORKER]}>
+                    <AccountingModule sales={sales} purchases={purchases} onAddInvoice={handleAddInvoice} /> 
+                  </ProtectedView>
+                )}
+
+                {activeView === 'expenses' && ( 
+                  <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN]}>
+                    <ExpenseModule 
+                      purchases={purchases} 
                       sales={sales}
-                      isFinanceCertified={isFinanceCertified}
-                      samiCoins={samiCoins}
-                      onNavigate={(view) => {
-                        if (view === 'notifications') {
-                          setIsProfileOpen(true);
-                        } else {
-                          setCurrentView(view);
+                      alerts={alerts} 
+                      onAddPurchase={handleAddInvoice}
+                      onAddAlert={(alert) => setAlerts(prev => [...prev, { ...alert, id: crypto.randomUUID() }])} 
+                      onUpdateAlert={(alertId, status) => setAlerts(prev => prev.map(a => a.id === alertId ? { ...a, status } : a))}
+                    /> 
+                  </ProtectedView>
+                )}
+
+                {activeView === 'credit' && ( 
+                  <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN]}>
+                    <CreditMarketplace 
+                      salesHistory={sales} 
+                      isFinanceCertified={isFinanceCertified} 
+                      applications={creditApplications}
+                      onApply={(newApp) => {
+                        const app: CreditApplication = {
+                          ...newApp,
+                          id: crypto.randomUUID(),
+                          status: 'pending',
+                          timestamp: new Date().toISOString()
+                        };
+                        setCreditApplications(prev => [app, ...prev]);
+                        if (currentUser) {
+                          logAdminAction(currentUser, `Nueva solicitud de ${app.type === 'loan' ? 'Préstamo' : 'Factoring'} por S/ ${app.amount} con ${app.partner.name}`);
                         }
                       }}
-                      onQuickSaleClick={() => setIsQuickSaleOpen(true)}
-                      onAddTask={handleAddTask}
-                      /> 
-                    </div>
-                  )}
-                </ProtectedView>
-              )}
+                    /> 
+                  </ProtectedView>
+                )}
 
-              {currentView === 'tasks' && (
-                 <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN, AppRole.MYPE_WORKER]}>
-                    <TaskModule 
-                      tasks={tasks}
-                      onAddTask={handleAddTask}
-                      onUpdateTask={handleUpdateTask}
-                      onDeleteTask={handleDeleteTask}
-                    />
-                 </ProtectedView>
-              )}
+                {activeView === 'profiling' && ( 
+                  <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN]}>
+                    <DeepProfilingModule 
+                      taxSummary={taxSummary} 
+                      businessName={currentUser.name} 
+                      ruc={sales[0]?.ruc || "20123456789"} 
+                    /> 
+                  </ProtectedView>
+                )}
 
-              {currentView === 'bank-api' && ( 
-                <ProtectedView allowedRoles={[AppRole.BANK_ADMIN, AppRole.BANK_ANALYST, AppRole.BANK_SUPERVISOR]}>
-                  <BankDashboard /> 
-                </ProtectedView>
-              )}
-              
-              {currentView === 'chat' && (
-                 <div className="w-full h-full flex items-center justify-center p-4 md:p-8">
-                    <ChatWindow 
-                      messages={messages} 
-                      isLoading={isChatLoading} 
-                      onSendMessage={handleSendMessage} 
-                      onViewChange={(view) => setCurrentView(view)}
-                      error={chatError} 
-                    />
-                 </div>
-              )}
-
-              {currentView === 'accounting' && ( 
-                <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN]}>
-                  <AccountingModule sales={sales} purchases={purchases} onAddInvoice={handleAddInvoice} /> 
-                </ProtectedView>
-              )}
-
-              {currentView === 'expenses' && ( 
-                <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN]}>
-                  <ExpenseModule 
-                    purchases={purchases} 
-                    sales={sales}
-                    alerts={alerts} 
-                    onAddPurchase={handleAddInvoice}
-                    onAddAlert={(alert) => setAlerts(prev => [...prev, { ...alert, id: crypto.randomUUID() }])} 
-                    onUpdateAlert={(alertId, status) => setAlerts(prev => prev.map(a => a.id === alertId ? { ...a, status } : a))}
-                  /> 
-                </ProtectedView>
-              )}
-
-              {currentView === 'exchange' && (
-                <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN]}>
-                  <ExchangeModule 
-                    samiCoins={samiCoins}
-                    earnCoins={earnCoins}
-                    onDeductCoins={(amount, description) => {
-                      setSamiCoins(prev => Math.max(0, prev - amount));
-                      const tx = createTransaction(amount, 'redeem', description);
-                      setLoyaltyTransactions(prev => [tx, ...prev]);
-                    }}
-                    onAddPurchase={(invoice) => handleAddInvoice({
-                      ...invoice,
-                      type: InvoiceType.PURCHASE,
-                      series: 'ES01',
-                      correlative: String(Math.floor(100000 + Math.random() * 900000))
-                    })}
-                    onAddSale={(invoice) => handleAddInvoice({
-                      ...invoice,
-                      type: InvoiceType.SALE,
-                      series: 'ES02',
-                      correlative: String(Math.floor(100000 + Math.random() * 900000))
-                    })}
-                  />
-                </ProtectedView>
-              )}
-
-              {currentView === 'credit' && ( 
-                <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN]}>
-                  <CreditMarketplace 
-                    salesHistory={sales} 
-                    isFinanceCertified={isFinanceCertified} 
-                    applications={creditApplications}
-                    onApply={(newApp) => {
-                      const app: CreditApplication = {
-                        ...newApp,
-                        id: crypto.randomUUID(),
-                        status: 'pending',
-                        timestamp: new Date().toISOString()
-                      };
-                      setCreditApplications(prev => [app, ...prev]);
-                      if (currentUser) {
-                        logAdminAction(currentUser, `Nueva solicitud de ${app.type === 'loan' ? 'Préstamo' : 'Factoring'} por S/ ${app.amount} con ${app.partner.name}`);
-                      }
-                    }}
-                  /> 
-                </ProtectedView>
-              )}
-
-              {currentView === 'profiling' && ( 
-                <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN]}>
-                  <DeepProfilingModule 
-                    samiScore={samiScore} 
-                    businessName={currentUser.name} 
-                    ruc={sales[0]?.ruc || "20123456789"} 
-                  /> 
-                </ProtectedView>
-              )}
-
-              {currentView === 'loyalty' && (
-                <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN]}>
-                  <LoyaltyModule 
-                    balance={samiCoins}
-                    transactions={loyaltyTransactions}
-                    referrals={referrals}
-                    onRedeem={redeemCoins}
-                    onInvite={handleInvite}
-                  />
-                </ProtectedView>
-              )}
-
-              {currentView === 'education' && (
-                  <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN, AppRole.MYPE_WORKER]}>
-                    <EducationModule 
-                      salesHistory={sales} 
-                      courses={courses} 
-                      userProgress={userProgress}
-                      onLessonComplete={handleLessonComplete}
-                      isFinanceCertified={isFinanceCertified}
-                      samiScore={samiScore}
+                {activeView === 'loyalty' && (
+                  <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN]}>
+                    <LoyaltyModule 
+                      balance={samiCoins}
+                      transactions={loyaltyTransactions}
+                      referrals={referrals}
+                      onRedeem={redeemCoins}
+                      onInvite={handleInvite}
                     />
                   </ProtectedView>
-              )}
+                )}
 
-              {currentView === 'admin' && (
-                <ProtectedView allowedRoles={[AppRole.SAMI_ADMIN, AppRole.SAMI_ANALYST]} requireAdminAuth={currentUser.role === AppRole.SAMI_ADMIN}>
-                  <AdminDashboard currentUser={currentUser} onNavigate={setCurrentView} />
-                </ProtectedView>
-              )}
+                {activeView === 'education' && (
+                    <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN, AppRole.MYPE_WORKER]}>
+                      <EducationModule 
+                        salesHistory={sales} 
+                        courses={courses} 
+                        userProgress={userProgress}
+                        onLessonComplete={handleLessonComplete}
+                        isFinanceCertified={isFinanceCertified}
+                        taxSummary={taxSummary}
+                      />
+                    </ProtectedView>
+                )}
 
-              {currentView === 'management' && (
-                <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN, AppRole.BANK_ADMIN, AppRole.BANK_SUPERVISOR, AppRole.BANK_ANALYST, AppRole.SAMI_ADMIN]}>
-                  <ManagementModule currentUser={currentUser} onNavigate={setCurrentView} />
-                </ProtectedView>
-              )}
+                {activeView === 'glossary' && (
+                    <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN, AppRole.MYPE_WORKER, AppRole.BANK_ADMIN, AppRole.BANK_SUPERVISOR, AppRole.BANK_ANALYST, AppRole.SAMI_ADMIN, AppRole.SAMI_ANALYST]}>
+                      <FinancialGlossary />
+                    </ProtectedView>
+                )}
+
+                {activeView === 'admin' && (
+                  <ProtectedView allowedRoles={[AppRole.SAMI_ADMIN, AppRole.SAMI_ANALYST]} requireAdminAuth={currentUser.role === AppRole.SAMI_ADMIN}>
+                    <AdminDashboard currentUser={currentUser} onNavigate={setCurrentView} />
+                  </ProtectedView>
+                )}
+
+                {activeView === 'management' && (
+                  <ProtectedView allowedRoles={[AppRole.MYPE_ADMIN, AppRole.BANK_ADMIN, AppRole.BANK_SUPERVISOR, AppRole.BANK_ANALYST, AppRole.SAMI_ADMIN]}>
+                    <ManagementModule currentUser={currentUser} onNavigate={setCurrentView} />
+                  </ProtectedView>
+                )}
+              </Suspense>
             </motion.div>
           </AnimatePresence>
         </main>
@@ -1326,7 +1506,7 @@ const App: React.FC = () => {
                               </div>
 
                               {/* Interactive Action Shortcuts */}
-                              {notification.action && (
+                              {notification.action && moduloDisponible(notification.action as any, currentUser.role) && (
                                 <div className="mt-1 flex gap-2">
                                   <button
                                     type="button"
@@ -1429,7 +1609,7 @@ const App: React.FC = () => {
           <TwoFactorAuthModal 
               onClose={() => close2faModal()}
               onSuccess={handle2faSuccess}
-              correctCode={currentUser?.twoFactorCode || '123456'}
+              userName={currentUser?.name}
           />
         )}
       </AnimatePresence>
@@ -1446,7 +1626,7 @@ const App: React.FC = () => {
           setCurrentView={setCurrentView}
           userRole={currentUser.role}
           pendingAlerts={alerts.filter(a => a.status === 'pending').length}
-          isCreditEligible={!!(samiScore && samiScore.score >= 580)}
+          isCreditEligible={Boolean(isCreditEligible)}
         />
       )}
 
@@ -1454,7 +1634,7 @@ const App: React.FC = () => {
       {currentUser?.role === AppRole.MYPE_ADMIN && (
         <FloatingActionButton
           onQuickSale={() => setIsQuickSaleOpen(true)}
-          onOpenChat={() => setCurrentView('chat')}
+          onOpenChat={moduloDisponible('chat', currentUser.role) ? () => setCurrentView('chat') : undefined}
         />
       )}
 
@@ -1463,7 +1643,7 @@ const App: React.FC = () => {
         isOpen={isQuickSaleOpen}
         onClose={() => setIsQuickSaleOpen(false)}
         onAddInvoice={handleAddInvoice}
-        existingSalesCount={sales.length}
+        sales={sales}
       />
 
       {/* Toast de advertencia de sesión */}

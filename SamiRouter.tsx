@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from './core/context/AuthContext';
 import App from './App';
-import LandingPage from './components/LandingPage';
-import Login from './components/Login';
-import Register from './components/Register';
+import LandingPage from './LandingPage';
+import Login from './modules/cuenta/Login';
+import Register from './modules/cuenta/Register';
 
 type Route = 'landing' | 'login' | 'register' | 'app';
 

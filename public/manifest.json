@@ -1,4 +1,6 @@
 {
+  "id": "/",
+  "scope": "/",
   "name": "SAMI — Tu Plataforma Financiera MYPE",
   "short_name": "SAMI",
   "description": "Contabilidad, Créditos y Educación para tu MYPE en Perú.",
@@ -6,20 +8,32 @@
   "display": "standalone",
   "background_color": "#F8FAFC",
   "theme_color": "#4F46E5",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "lang": "es-PE",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='40' fill='%234F46E5'/><text y='155' x='30' font-size='140'>🛡️</text></svg>",
+      "src": "/icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%234F46E5'/><text y='420' x='70' font-size='380'>🛡️</text></svg>",
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-512.svg",
       "sizes": "512x512",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ],
   "categories": ["finance", "business", "productivity"],
@@ -28,8 +42,7 @@
     {
       "name": "Registrar Venta",
       "short_name": "Venta",
-      "url": "/?action=quick-sale",
-      "icons": [{ "src": "/favicon.ico", "sizes": "96x96" }]
+      "url": "/?action=quick-sale"
     }
   ]
 }

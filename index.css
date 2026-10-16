@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;750&display=swap');
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
 
   /* ── SAMI Brand Colors ── */
@@ -175,8 +177,40 @@
 
   }
 
-  :focus-visible {
-    @apply outline-none ring-3 ring-brand-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-950;
+  /* ── WCAG 2.2 AA: Foco Visible de Alto Contraste (SC 2.4.7 y SC 2.4.11) ── */
+  :focus-visible,
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:focus-visible,
+  [role="button"]:focus-visible {
+    outline: 3px solid #4F46E5 !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.2) !important;
+  }
+
+  .dark :focus-visible,
+  .dark button:focus-visible,
+  .dark a:focus-visible,
+  .dark input:focus-visible,
+  .dark select:focus-visible,
+  .dark textarea:focus-visible,
+  .dark [tabindex]:focus-visible,
+  .dark [role="button"]:focus-visible {
+    outline: 3px solid #818CF8 !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.25) !important;
+  }
+
+  /* ── WCAG 2.2 AA: Área Táctil Mínima (SC 2.5.8 — Target Size Minimum 44x44px) ── */
+  button:not(.compact-btn):not(table button),
+  [role="button"]:not(.compact-btn),
+  input[type="button"],
+  input[type="submit"] {
+    min-height: 44px;
+    min-width: 44px;
   }
 
   /* Custom text sizes */
@@ -377,5 +411,176 @@
   .dark .glass-premium {
     background-color: rgba(15, 23, 42, 0.75);
     border: 1px solid rgba(51, 65, 85, 0.5);
+  }
+}
+
+/* ── Print Media Queries — Invoices and Receipts Optimization ── */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  /* Reset body and background for printing */
+  html, body, #root {
+    background: #ffffff !important;
+    color: #000000 !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Hide non-essential UI elements when printing */
+  nav,
+  aside,
+  header:not(.print-header),
+  footer,
+  .no-print,
+  .print\:hidden,
+  button:not(.print-keep),
+  .bottom-nav-safe,
+  .floating-action-button,
+  .backdrop-blur-sm,
+  .backdrop-blur-md,
+  .animate-pulse,
+  .animate-bounce,
+  .animate-spin,
+  input,
+  select,
+  textarea,
+  form,
+  .filter-bar,
+  .tab-buttons,
+  .quick-sale-modal,
+  .fab-container {
+    display: none !important;
+  }
+
+  /* Display elements designed specifically for print */
+  .print-only,
+  .print\:block {
+    display: block !important;
+  }
+
+  .print\:inline-block {
+    display: inline-block !important;
+  }
+
+  .print\:flex {
+    display: flex !important;
+  }
+
+  .print\:grid {
+    display: grid !important;
+  }
+
+  /* Clean up text contrast and remove dark mode backgrounds */
+  *, *::before, *::after {
+    background-color: transparent !important;
+    color: #111827 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+  }
+
+  /* Force printable vouchers and tables to render sharply on white background */
+  .printable-voucher,
+  .printable-table,
+  .bg-white,
+  .dark\:bg-gray-800,
+  .dark\:bg-gray-900,
+  .dark\:bg-slate-900,
+  .dark\:bg-slate-800 {
+    background-color: #ffffff !important;
+    border-color: #d1d5db !important;
+    color: #111827 !important;
+  }
+
+  .printable-voucher {
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    display: block !important;
+  }
+
+  /* Avoid page breaks inside table rows or voucher components */
+  tr,
+  .printable-voucher,
+  .printable-card,
+  .break-inside-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Ensure tables stretch cleanly and print crisp borders */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-top: 8px !important;
+    margin-bottom: 8px !important;
+  }
+
+  th, td {
+    border: 1px solid #d1d5db !important;
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+    color: #111827 !important;
+  }
+
+  th {
+    background-color: #f3f4f6 !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+  }
+
+  /* High legibility color overrides for printed text */
+  .text-indigo-600, .text-indigo-500, .text-blue-600, .text-emerald-600, .text-emerald-500 {
+    color: #111827 !important;
+  }
+
+  .text-rose-500, .text-red-500, .text-amber-500 {
+    color: #374151 !important;
+  }
+
+  .text-gray-400, .text-gray-500, .text-slate-400 {
+    color: #4b5563 !important;
+  }
+
+  /* Layout container fixes for print */
+  .container,
+  main,
+  .max-w-7xl,
+  .max-w-4xl,
+  .max-w-2xl {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Hide scrollbars during print */
+  ::-webkit-scrollbar {
+    display: none !important;
+  }
+}
+
+/* ── WCAG 2.2 AA: Respeto a Preferencias del Sistema — Reducción de Movimiento (SC 2.2.2) ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

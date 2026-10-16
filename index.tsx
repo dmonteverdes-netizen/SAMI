@@ -2,9 +2,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import SamiRouter from './SamiRouter';
-import { AuthProvider } from './context/AuthContext';
-import { ThemeProvider } from './context/ThemeContext';
-import { SecurityProvider } from './context/SecurityContext';
+import { AuthProvider } from './core/context/AuthContext';
+import { ThemeProvider } from './core/context/ThemeContext';
+import { SecurityProvider } from './core/context/SecurityContext';
 import './index.css';
 
 const rootElement = document.getElementById('root');
