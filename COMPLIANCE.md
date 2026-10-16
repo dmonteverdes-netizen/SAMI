@@ -23,12 +23,12 @@ El usuario debe consentir explícitamente que SAMI recopilará, almacenará, org
 #### b. Finalidad del Tratamiento:
 Se debe detallar de forma clara y sencilla para qué se usarán los datos:
 -   Para procesar y calcular resúmenes tributarios preliminares.
--   Para analizar su historial de ventas y salud financiera con el fin de calcular un **"SAMI Score"**.
+-   Para analizar su historial de ventas y salud financiera con el fin de calcular su **"Salud Tributaria"**.
 -   Para generar recomendaciones personalizadas de cursos en la "Academia SAMI".
--   **Finalidad Crediticia:** Para utilizar el "SAMI Score" y los datos financieros subyacentes con el objetivo de presentarle al usuario ofertas de crédito no vinculantes de nuestras entidades financieras aliadas.
+-   **Finalidad Crediticia:** Para utilizar la "Salud Tributaria" y los datos financieros subyacentes con el objetivo de presentarle al usuario ofertas de crédito no vinculantes de nuestras entidades financieras aliadas.
 
 #### c. Transferencia de Datos a Terceros (Marketplace de Créditos):
-Se requiere un consentimiento explícito para la **transferencia y flujo transfronterizo (si aplica)** de sus datos personales y financieros (incluyendo el SAMI Score y resúmenes de ventas) a las entidades financieras listadas en nuestro Marketplace. Se debe proveer una lista actualizada de dichos socios y el usuario debe aceptar esta transferencia para poder acceder a las ofertas.
+Se requiere un consentimiento explícito para la **transferencia y flujo transfronterizo (si aplica)** de sus datos personales y financieros (incluyendo la Salud Tributaria y resúmenes de ventas) a las entidades financieras listadas en nuestro Marketplace. Se debe proveer una lista actualizada de dichos socios y el usuario debe aceptar esta transferencia para poder acceder a las ofertas.
 
 #### d. Derechos ARCO (Acceso, Rectificación, Cancelación y Oposición):
 Se informará al usuario sobre sus derechos ARCO y se establecerá un procedimiento claro y accesible (ej. un correo electrónico dedicado `privacidad@sami.pe` y una sección en su perfil) para que pueda ejercerlos en cualquier momento.

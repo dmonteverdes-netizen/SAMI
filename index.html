@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es-PE">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -11,70 +11,77 @@
     <meta name="theme-color" content="#4F46E5" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0F172A" media="(prefers-color-scheme: dark)" />
     <!-- SEO Primary -->
-    <title>SAMI — La plataforma financiera para tu MYPE en Perú</title>
-    <meta name="description" content="Controla tu contabilidad, construye tu SAMI Score crediticio y accede a créditos para tu bodega o MYPE en Perú. 100% digital, sin filas, sin papeleos." />
-    <meta name="keywords" content="créditos MYPE Perú, plataforma financiera bodega, SAMI Score, fintech Peru, préstamos pequeña empresa" />
+    <title>SAMI — La plataforma de gestión tributaria y financiera para tu MYPE en Perú</title>
+    <meta name="description" content="Organiza tu contabilidad, verifica tu información tributaria ante SUNAT y comparte tus datos con entidades financieras aliadas para acceder a mejores créditos en Perú." />
+    <meta name="keywords" content="créditos MYPE Perú, plataforma financiera bodega, información tributaria SUNAT, fintech Peru, préstamos pequeña empresa, crédito fiscal MYPE" />
     <link rel="canonical" href="https://sami.pe" />
     <!-- Open Graph (WhatsApp, Facebook, LinkedIn) -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://sami.pe" />
     <meta property="og:title" content="SAMI — La plataforma financiera para tu MYPE" />
-    <meta property="og:description" content="Contabilidad, Créditos y Educación en un solo lugar. SAMI te ordena para que el sistema financiero te quiera." />
+    <meta property="og:description" content="Contabilidad, Créditos y Educación en un solo lugar. SAMI te ordena y comparte con tu consentimiento tu información tributaria con instituciones bancarias aliadas." />
     <meta property="og:image" content="https://sami.pe/og-image.png" />
     <meta property="og:locale" content="es_PE" />
     <meta name="twitter:card" content="summary_large_image" />
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />
-    <!-- Favicon — Shield emoji + SVG fallback -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>" />
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%234F46E5'/><text y='.85em' x='10' font-size='75'>🛡️</text></svg>" />
-    <!-- Structured Data (JSON-LD) — Google Rich Results -->
+    <!-- Favicon & App Icons -->
+    <link rel="icon" type="image/svg+xml" href="/icons/icon-512.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon-180.png" />
+    <!-- Structured Data (JSON-LD) — Google Rich Results & AEO -->
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "SAMI",
-      "applicationCategory": "FinanceApplication",
-      "operatingSystem": "Web, Android, iOS",
-      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "PEN" },
-      "description": "Plataforma financiera para MYPEs peruanas: contabilidad, créditos y educación.",
-      "url": "https://sami.pe",
-      "provider": { "@type": "Organization", "name": "SAMI Fintech", "url": "https://sami.pe" },
-      "inLanguage": "es-PE",
-      "featureList": ["SAMI Score crediticio", "Marketplace de créditos", "Academia financiera", "Contabilidad automatizada"]
-    }
+    [
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "SAMI",
+        "applicationCategory": "FinanceApplication",
+        "operatingSystem": "Web, Android, iOS",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "PEN" },
+        "description": "Plataforma financiera para MYPEs peruanas: contabilidad, créditos y educación.",
+        "url": "https://sami.pe",
+        "provider": { "@type": "Organization", "name": "SAMI Fintech", "url": "https://sami.pe" },
+        "inLanguage": "es-PE",
+        "featureList": ["Información tributaria estructurada", "Marketplace de créditos", "Academia financiera", "Contabilidad automatizada"]
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "¿Cómo ayuda SAMI a mi MYPE a acceder a créditos bancarios?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "SAMI organiza de forma automática tus boletas, facturas y flujo de ventas verificado ante SUNAT. Con tu consentimiento explícito, transmite este expediente de salud tributaria a entidades financieras aliadas para calificar a préstamos con menores tasas."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Cómo calculo el IGV y Renta MYPE en Perú?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "En el Régimen MYPE Tributario, la tasa de impuesto a la renta es del 1% sobre ingresos netos mensuales (hasta 300 UIT) y el IGV es del 18% con crédito fiscal por compras formales."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿SAMI presta dinero directamente a las MYPEs?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. SAMI es una plataforma B2B de ordenamiento financiero y transporte de datos que empaqueta tus datos fiscales verificados para presentarlos a entidades financieras y fintechs aliadas con tu previo consentimiento."
+            }
+          }
+        ]
+      }
+    ]
     </script>
-    <!-- Google Fonts — Plus Jakarta Sans (más amigable y moderna que Inter) -->
+    <!-- Google Fonts — Plus Jakarta Sans & DM Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-    <!-- Tailwind CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
-              mono: ['DM Mono', 'ui-monospace', 'monospace'],
-            }
-          }
-        }
-      }
-    </script>
     <link rel="stylesheet" href="/index.css" />
-    <!-- Import Map -->
-    <script type="importmap">
-    {
-      "imports": {
-        "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-        "react/": "https://esm.sh/react@^19.2.3/",
-        "react": "https://esm.sh/react@^19.2.3",
-        "@google/genai": "https://esm.sh/@google/genai@^1.37.0"
-      }
-    }
-    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,0 +1,94 @@
+{
+  "pilotBusiness": {
+    "ruc": "20123456789",
+    "businessName": "BODEGA Y COMERCIALIZADORA SAN MARTÍN E.I.R.L.",
+    "tradeName": "Bodega San Martín",
+    "taxRegime": "RMT",
+    "taxStatus": "HABIDO",
+    "taxState": "ACTIVO",
+    "address": "Av. Petit Thouars 1420, Lince, Lima - Perú",
+    "economicActivity": "4711 - Venta al por menor en comercios no especializados"
+  },
+  "salesInvoices": [
+    {
+      "id": "SALE-001",
+      "type": "sale",
+      "documentType": "BOLETA_DE_VENTA",
+      "series": "B001",
+      "correlative": 101,
+      "issueDate": "2026-08-01",
+      "clientName": "Juan Carlos Pérez",
+      "totalAmount": 150.00,
+      "taxableAmount": 127.12,
+      "igvAmount": 22.88,
+      "category": "Mercadería Abarrotes"
+    },
+    {
+      "id": "SALE-002",
+      "type": "sale",
+      "documentType": "FACTURA",
+      "series": "F001",
+      "correlative": 88,
+      "issueDate": "2026-08-03",
+      "ruc": "20554433221",
+      "clientName": "RESTAURANTE EL BUEN SABOR S.A.C.",
+      "totalAmount": 1200.00,
+      "taxableAmount": 1016.95,
+      "igvAmount": 183.05,
+      "category": "Distribución Mayorista"
+    },
+    {
+      "id": "SALE-003",
+      "type": "sale",
+      "documentType": "BOLETA_DE_VENTA",
+      "series": "B001",
+      "correlative": 102,
+      "issueDate": "2026-08-05",
+      "clientName": "María Elena Torres",
+      "totalAmount": 380.00,
+      "taxableAmount": 322.03,
+      "igvAmount": 57.97,
+      "category": "Mercadería General"
+    }
+  ],
+  "purchaseInvoices": [
+    {
+      "id": "PURCH-001",
+      "type": "purchase",
+      "documentType": "FACTURA",
+      "series": "F012",
+      "correlative": 4509,
+      "issueDate": "2026-08-02",
+      "ruc": "20100123456",
+      "supplierName": "DISTRIBUIDORA ALIMENTICIA LIMA S.A.",
+      "totalAmount": 850.00,
+      "taxableAmount": 720.34,
+      "igvAmount": 129.66,
+      "category": "Inventario Abarrotes"
+    },
+    {
+      "id": "PURCH-002",
+      "type": "purchase",
+      "documentType": "FACTURA",
+      "series": "F004",
+      "correlative": 1120,
+      "issueDate": "2026-08-04",
+      "ruc": "20300987654",
+      "supplierName": "EMPAQUES Y BOLSAS BIODEGRADABLES PERÚ E.I.R.L.",
+      "totalAmount": 240.00,
+      "taxableAmount": 203.39,
+      "igvAmount": 36.61,
+      "category": "Suministros de Operación"
+    }
+  ],
+  "taxSummaryAugust2026": {
+    "totalSales": 1730.00,
+    "totalPurchases": 1090.00,
+    "igvDebitSales": 263.90,
+    "igvCreditPurchases": 166.27,
+    "netIgvPayable": 97.63,
+    "rmtIncomeTaxAdvance1Percent": 14.66,
+    "isIgvJustoEligible": true,
+    "notes": "Calculado automáticamente bajo el Régimen MYPE Tributario (RMT) con tasa de pago a cuenta de Renta del 1%."
+  }
+}

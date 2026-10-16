@@ -1,0 +1,255 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum InvoiceType {
+  SALE
+  PURCHASE
+}
+
+enum DocumentType {
+  FACTURA
+  BOLETA_DE_VENTA
+  NOTA_DE_CREDITO
+  NOTA_DE_DEBITO
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ConsentPurpose {
+  TRANSMISION_DATOS_BANCOS
+  ANALISIS_TRIBUTARIO
+  COMUNICACIONES_COMERCIALES
+  INTEGRACION_PSE
+}
+
+enum ConsentStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum ConsentAction {
+  GRANTED
+  REVOKED
+}
+
+enum ArcoRightType {
+  ACCESO
+  RECTIFICACION
+  CANCELACION
+  OPOSICION
+}
+
+enum ArcoRequestStatus {
+  PENDIENTE
+  EN_EVALUACION
+  APROBADO
+  DENEGADO
+  COMPLETADO
+}
+
+enum UserRole {
+  MYPE_ADMIN
+  MYPE_WORKER
+  MYPE_ACCOUNTANT
+  BANK_ANALYST
+  BANK_SUPERVISOR
+  BANK_ADMIN
+  SAMI_ADMIN
+  SAMI_ANALYST
+}
+
+model SME {
+  ruc             String         @id @db.VarChar(11)
+  businessName    String
+  email           String         @unique
+  phone           String?
+  sector          String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relational link to high-volume transaction invoices
+  invoices        Invoice[]
+  consentGrants   ConsentGrant[]
+  users           User[]
+
+  @@map("smes")
+}
+
+model User {
+  id              String      @id @default(uuid())
+  identifier      String?     @unique // DNI (8 dígitos) o Teléfono celular (9 dígitos)
+  email           String      @unique
+  name            String
+  passwordHash    String
+  role            UserRole    @default(MYPE_ADMIN)
+  businessId      String
+  ruc             String?     @db.VarChar(11)
+  institutionId   String?
+  twoFactorSecret String?
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  sme             SME?        @relation(fields: [ruc], references: [ruc], onDelete: SetNull)
+
+  @@index([businessId])
+  @@index([ruc])
+  @@map("users")
+}
+
+model BankPartner {
+  id              String    @id @default(uuid())
+  name            String
+  clientId        String    @unique
+  clientSecret    String    // Hashed client secret for B2B OAuth flows
+  apiUrl          String?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("bank_partners")
+}
+
+model Invoice {
+  id              String       @id @default(uuid())
+  type            InvoiceType
+  documentType    DocumentType
+  series          String       @db.VarChar(4) // e.g. F001, B001
+  correlative     Int
+  issueDate       DateTime
+  totalAmount     Decimal      @db.Decimal(12, 2)
+  category                String?
+  ruc                     String?       @db.VarChar(11) // External emitter/receiver RUC
+  referencedDocumentType  DocumentType?
+  referencedSeries        String?       @db.VarChar(4)
+  referencedCorrelative   Int?
+  noteReason              String?
+  referencedInvoiceId     String?
+  description             String?
+  paymentMethod           String?
+  aiCategorizedReason     String?
+
+  // Resultado de la emisión electrónica vía PSE (solo ventas).
+  // emissionSimulated = true cuando el comprobante NO fue enviado a SUNAT (sin credenciales de PSE).
+  emissionProvider        String?       // "NUBEFACT" | "SIMULADO"
+  emissionSimulated       Boolean?
+  sunatAccepted           Boolean?
+  sunatDescription        String?
+  pdfUrl                  String?
+  xmlUrl                  String?
+  cdrUrl                  String?
+  emittedAt               DateTime?
+
+  // Strong relational foreign key linking to the registering SME
+  smeId           String       @db.VarChar(11)
+  sme             SME          @relation(fields: [smeId], references: [ruc], onDelete: Cascade)
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Una compra se identifica también por el RUC del proveedor: dos proveedores pueden
+  // usar la misma serie-correlativo. La unicidad de ventas propias se valida en el repositorio.
+  @@unique([smeId, type, series, correlative, ruc])
+  @@index([smeId, type, issueDate])
+  @@map("invoices")
+}
+
+// Padrón reducido del RUC publicado por SUNAT (descarga pública gratuita).
+// Se carga con: npm run padron:import -- <ruta a padron_reducido_ruc.zip|txt>
+model RucPadron {
+  ruc             String    @id @db.VarChar(11)
+  businessName    String
+  status          String    // ESTADO DEL CONTRIBUYENTE (ACTIVO, BAJA DE OFICIO, ...)
+  condition       String    // CONDICIÓN DE DOMICILIO (HABIDO, NO HABIDO, ...)
+  ubigeo          String    @db.VarChar(6)
+  address         String
+
+  @@map("ruc_padron")
+}
+
+model PadronImport {
+  id              String    @id @default(uuid())
+  sourceFile      String
+  rowCount        Int
+  importedAt      DateTime  @default(now())
+
+  @@map("padron_imports")
+}
+
+model ConsentGrant {
+  id                    String                @id @default(uuid())
+  ruc                   String                @db.VarChar(11)
+  purpose               ConsentPurpose
+  status                ConsentStatus         @default(ACTIVE)
+  privacyPolicyVersion  String                @default("2026.1")
+  grantedAt             DateTime              @default(now())
+  revokedAt             DateTime?
+  expiresAt             DateTime?
+  updatedAt             DateTime              @updatedAt
+
+  sme                   SME?                  @relation(fields: [ruc], references: [ruc], onDelete: Cascade)
+  transmissions         DataTransmissionLog[]
+
+  @@unique([ruc, purpose])
+  @@map("consent_grants")
+}
+
+model ConsentEvent {
+  id                    String          @id @default(uuid())
+  ruc                   String          @db.VarChar(11)
+  purpose               ConsentPurpose
+  action                ConsentAction
+  privacyPolicyVersion  String          @default("2026.1")
+  ipAddress             String?
+  userAgent             String?
+  createdAt             DateTime        @default(now())
+
+  @@index([ruc])
+  @@map("consent_events")
+}
+
+model DataTransmissionLog {
+  id                    String          @id @default(uuid())
+  ruc                   String          @db.VarChar(11)
+  purpose               ConsentPurpose  @default(TRANSMISION_DATOS_BANCOS)
+  recipientEntity       String          // e.g. "Interbank", "Caja Huancayo", "Banco de Crédito"
+  transmittedAt         DateTime        @default(now())
+  consentGrantId        String?
+  consentGrant          ConsentGrant?   @relation(fields: [consentGrantId], references: [id], onDelete: SetNull)
+  payloadSummary        String?         // Resumen no confidencial del lote transferido
+  status                String          @default("SUCCESS")
+
+  @@index([ruc])
+  @@map("data_transmission_logs")
+}
+
+model ArcoRequest {
+  id                    String            @id @default(uuid())
+  caseCode              String            @unique // e.g. "ARCO-2026-9281"
+  ruc                   String            @db.VarChar(11)
+  fullName              String
+  email                 String
+  rightType             ArcoRightType
+  status                ArcoRequestStatus @default(PENDIENTE)
+  details               String
+  responseNotes         String?
+  submittedAt           DateTime          @default(now())
+  deadlineAt            DateTime
+  resolvedAt            DateTime?
+  updatedAt             DateTime          @updatedAt
+
+  @@index([ruc])
+  @@index([caseCode])
+  @@map("arco_requests")
+}

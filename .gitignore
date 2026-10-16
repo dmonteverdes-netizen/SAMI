@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Environment & Secrets
+.env
+.env*.local
+data/vapid_keys.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,3 +27,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Almacenes JSON de ejecución (se regeneran desde data/seed al arrancar)
+data/*_db.json
+data/consent_store.json
