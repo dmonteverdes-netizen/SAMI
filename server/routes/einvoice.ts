@@ -77,9 +77,10 @@ router.post('/emit', createAuthenticateToken(), requirePermission('SALES_WRITE')
       success: result.success,
     });
     res.status(result.success ? 200 : 502).json(result);
-  } catch (err: any) {
+  } catch (err: unknown) {
     logger.error('[E-Invoice] Error al emitir comprobante:', {}, err);
-    res.status(500).json({ success: false, isSimulated: true, provider: 'SIMULADO', environmentLabel: 'Error interno', errors: [err.message] });
+    const message = err instanceof Error ? err.message : 'Error interno';
+    res.status(500).json({ success: false, isSimulated: true, provider: 'SIMULADO', environmentLabel: 'Error interno', errors: [message] });
   }
 });
 

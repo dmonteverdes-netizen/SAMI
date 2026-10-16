@@ -47,7 +47,7 @@ router.get('/:ruc', createAuthenticateToken(), async (req, res) => {
         address: row.address,
       },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     logger.error('[RUC Router] Error consultando el padrón:', {}, err);
     res.status(500).json({ error: 'server_error', message: 'No se pudo consultar el padrón SUNAT.' });
   }

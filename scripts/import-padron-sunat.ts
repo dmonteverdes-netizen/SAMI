@@ -20,6 +20,7 @@ import readline from 'readline';
 import { spawn } from 'child_process';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
+import type { ReadableStream as WebReadableStream } from 'stream/web';
 import { PrismaClient } from '@prisma/client';
 import { PADRON_DOWNLOAD_URL, PadronRecord, parseHeader, parseLine } from '../server/services/padronParser';
 
@@ -43,7 +44,8 @@ async function download(dest: string): Promise<void> {
   console.log(`Descargando ${PADRON_DOWNLOAD_URL} ...`);
   const res = await fetch(PADRON_DOWNLOAD_URL);
   if (!res.ok || !res.body) throw new Error(`SUNAT respondió ${res.status} al descargar el padrón.`);
-  await pipeline(Readable.fromWeb(res.body as any), fs.createWriteStream(dest));
+  // El tipo ReadableStream global (DOM) y el de 'stream/web' son equivalentes en Node; se convierte explícitamente.
+  await pipeline(Readable.fromWeb(res.body as unknown as WebReadableStream<Uint8Array>), fs.createWriteStream(dest));
 }
 
 /** Abre el TXT directamente o lo extrae del ZIP con `unzip -p` (Linux/macOS) o `tar -xOf` (Windows 10+). */
@@ -123,7 +125,7 @@ async function main() {
   console.log(`Listo: ${imported.toLocaleString('es-PE')} RUC importados, ${skipped.toLocaleString('es-PE')} filas omitidas.`);
 }
 
-main().catch(err => {
-  console.error(`Error importando el padrón: ${err.message}`);
+main().catch((err: unknown) => {
+  console.error(`Error importando el padrón: ${err instanceof Error ? err.message : String(err)}`);
   process.exit(1);
 });

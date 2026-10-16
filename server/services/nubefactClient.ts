@@ -34,6 +34,21 @@ export interface EmissionResult {
   errors?: string[];
 }
 
+/** Respuesta JSON de Nubefact (campos usados por SAMI; todos opcionales por tolerancia). */
+interface NubefactApiResponse {
+  errors?: string;
+  codigo?: number | string;
+  aceptada_por_sunat?: boolean;
+  sunat_description?: string;
+  sunat_note?: string;
+  sunat_responsecode?: string | number;
+  enlace_del_pdf?: string;
+  enlace_del_xml?: string;
+  enlace_del_cdr?: string;
+}
+
+const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
 // ─── Constantes y Configuración ───
 
 const TIPO_COMPROBANTE: Record<string, number> = {
@@ -146,8 +161,8 @@ export async function emitWithNubefact(invoice: Invoice, customer: NubefactCusto
   let payload: Record<string, unknown>;
   try {
     payload = buildNubefactPayload(invoice, customer);
-  } catch (err: any) {
-    return { ...base, success: false, errors: [err.message] };
+  } catch (err: unknown) {
+    return { ...base, success: false, errors: [errorMessage(err)] };
   }
 
   try {
@@ -159,7 +174,7 @@ export async function emitWithNubefact(invoice: Invoice, customer: NubefactCusto
       },
       body: JSON.stringify(payload),
     });
-    const data: any = await res.json().catch(() => ({}));
+    const data: NubefactApiResponse = await res.json().catch(() => ({}));
 
     if (!res.ok || data.errors) {
       const message = data.errors ? String(data.errors) : `Nubefact respondió HTTP ${res.status}`;
@@ -176,7 +191,7 @@ export async function emitWithNubefact(invoice: Invoice, customer: NubefactCusto
       xmlUrl: data.enlace_del_xml || undefined,
       cdrUrl: data.enlace_del_cdr || undefined,
     };
-  } catch (err: any) {
-    return { ...base, success: false, errors: [`No se pudo conectar con Nubefact: ${err.message}`] };
+  } catch (err: unknown) {
+    return { ...base, success: false, errors: [`No se pudo conectar con Nubefact: ${errorMessage(err)}`] };
   }
 }

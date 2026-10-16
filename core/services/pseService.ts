@@ -1,3 +1,4 @@
+import axios from 'axios';
 import type { Invoice } from '../types/types';
 import { api } from './api';
 
@@ -101,8 +102,8 @@ export const submitInvoiceToPse = async (invoice: Invoice, customer?: EmissionCu
     try {
         const { data } = await api.post<PseResponse>('/einvoice/emit', { invoiceId: invoice.id, customer });
         return data;
-    } catch (error: any) {
-        const backendData = error?.response?.data;
+    } catch (error: unknown) {
+        const backendData = axios.isAxiosError<Partial<PseResponse>>(error) ? error.response?.data : undefined;
         if (backendData && typeof backendData.isSimulated === 'boolean') return backendData as PseResponse;
         const backendErrors = backendData?.errors;
         return {
@@ -110,7 +111,7 @@ export const submitInvoiceToPse = async (invoice: Invoice, customer?: EmissionCu
             isSimulated: true,
             provider: 'SIMULADO',
             environmentLabel: 'Sin conexión con el servicio de emisión',
-            errors: Array.isArray(backendErrors) ? backendErrors : [error?.message || 'Error desconocido al emitir'],
+            errors: Array.isArray(backendErrors) ? backendErrors : [error instanceof Error ? error.message : 'Error desconocido al emitir'],
         };
     }
 };
@@ -168,6 +169,9 @@ export const validateRucWithSunat = async (ruc: string): Promise<RucValidationRe
     return { active: true, condition: 'HABIDO', isSimulated: true, sourceLabel: SIMULATED_LABEL };
 };
 
+// DEMO_RUCS: fichas de demostración (Modo Demostración). Se reemplazan por datos reales cuando el
+// padrón reducido SUNAT está importado en PostgreSQL (npm run padron:import). Para datos que el padrón
+// no trae (teléfono, régimen, CIIU) se requiere un convenio PIDE/SUNAT o una API de consulta RUC de un PSE.
 const DEMO_RUCS: Record<string, DemoRucRecord> = {
     "20123456789": {
         businessName: "Corporación Textil Gamarra S.A.C.",
