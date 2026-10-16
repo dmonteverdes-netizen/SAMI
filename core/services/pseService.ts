@@ -21,7 +21,7 @@ export interface PseResponse {
     success: boolean;
     /** true cuando el comprobante NO fue enviado a SUNAT (sin credenciales de PSE). */
     isSimulated: boolean;
-    provider: 'NUBEFACT' | 'SIMULADO';
+    provider: 'NUBEFACT' | 'SUNAT_DIRECTO' | 'SIMULADO';
     environmentLabel: string;
     acceptedBySunat?: boolean;
     sunatCode?: string;
@@ -30,6 +30,7 @@ export interface PseResponse {
     pdfUrl?: string;
     xmlUrl?: string;
     cdrUrl?: string;
+    documentHash?: string;
     errors?: string[];
 }
 

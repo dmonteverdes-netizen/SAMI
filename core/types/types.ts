@@ -147,7 +147,7 @@ export interface Invoice {
 }
 
 export interface InvoiceEmission {
-  provider: 'NUBEFACT' | 'SIMULADO';
+  provider: 'NUBEFACT' | 'SUNAT_DIRECTO' | 'SIMULADO';
   /** true = el comprobante NO fue enviado a SUNAT (Modo Demostración). */
   isSimulated: boolean;
   acceptedBySunat?: boolean;
@@ -155,6 +155,8 @@ export interface InvoiceEmission {
   pdfUrl?: string;
   xmlUrl?: string;
   cdrUrl?: string;
+  /** Resumen de la firma digital (envío directo a SUNAT). */
+  documentHash?: string;
   emittedAt?: string;
 }
 

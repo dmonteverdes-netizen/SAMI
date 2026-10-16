@@ -7,6 +7,7 @@ import { calculateTaxes, calculateTaxesSync } from '../../services/accountingSer
 import { maskRUC, maskCurrency } from '../../services/maskingUtils';
 import { isValidRUC } from '../../services/riskService';
 import { validateRucWithSunat, submitInvoiceToPse, PseResponse } from '../../core/services/pseService';
+import { amountInWordsPE } from '../../core/services/amountInWords';
 import { Calendar, Filter, X, Info, Download, Lightbulb, Printer, Eye, FileText, CheckCircle2 } from 'lucide-react';
 import TermTooltip from '../glosario/TermTooltip';
 
@@ -16,56 +17,6 @@ interface AccountingModuleProps {
     onAddInvoice: (invoice: Omit<Invoice, 'id'>) => void;
 }
 
-function numberToWordsPE(amount: number): string {
-  const units = ['', 'UN', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE'];
-  const teens = ['DIEZ', 'ONCE', 'DOCE', 'TRECE', 'CATORCE', 'QUINCE', 'DIECISÉIS', 'DIECISIETE', 'DIECIOCHO', 'DIECINUEVE'];
-  const tens = ['', 'DIEZ', 'VEINTE', 'TREINTA', 'CUARENTA', 'CINCUENTA', 'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA'];
-  const hundreds = ['', 'CIENTO', 'DOSCIENTOS', 'TRESCIENTOS', 'CUATROCIENTOS', 'QUINIENTOS', 'SEISCIENTOS', 'SETECIENTOS', 'OCHOCIENTOS', 'NOVECIENTOS'];
-
-  const whole = Math.floor(amount);
-  const cents = Math.round((amount - whole) * 100);
-  const centsStr = cents < 10 ? `0${cents}` : `${cents}`;
-
-  if (whole === 0) return `CERO CON ${centsStr}/100 SOLES`;
-  if (whole === 100) return `CIEN CON ${centsStr}/100 SOLES`;
-
-  function convertGroup(n: number): string {
-    if (n === 0) return '';
-    if (n === 100) return 'CIEN';
-    let res = '';
-    const h = Math.floor(n / 100);
-    const rem = n % 100;
-    if (h > 0) res += hundreds[h] + ' ';
-
-    if (rem >= 10 && rem < 20) {
-      res += teens[rem - 10];
-    } else if (rem >= 20 && rem < 30) {
-      if (rem === 20) res += 'VEINTE';
-      else res += 'VEINTI' + units[rem - 20];
-    } else if (rem >= 30) {
-      const t = Math.floor(rem / 10);
-      const u = rem % 10;
-      res += tens[t];
-      if (u > 0) res += ' Y ' + units[u];
-    } else if (rem > 0) {
-      res += units[rem];
-    }
-    return res.trim();
-  }
-
-  let result = '';
-  if (whole >= 1000) {
-    const k = Math.floor(whole / 1000);
-    const rest = whole % 1000;
-    if (k === 1) result += 'MIL ';
-    else result += convertGroup(k) + ' MIL ';
-    if (rest > 0) result += convertGroup(rest);
-  } else {
-    result = convertGroup(whole);
-  }
-
-  return `SON: ${result.trim()} CON ${centsStr}/100 SOLES`;
-}
 
 const AccountingModule: React.FC<AccountingModuleProps> = ({ sales, purchases, onAddInvoice }) => {
     const [activeTab, setActiveTab] = useState<InvoiceType>(InvoiceType.SALE);
@@ -808,7 +759,7 @@ const AccountingModule: React.FC<AccountingModuleProps> = ({ sales, purchases, o
                                         <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                                             <p className="font-bold text-[10px] text-slate-500 uppercase tracking-wider">Monto en letras:</p>
                                             <p className="font-bold text-slate-900 uppercase mt-0.5">
-                                                {numberToWordsPE(selectedInvoiceForPrint.totalAmount)}
+                                                {amountInWordsPE(selectedInvoiceForPrint.totalAmount)}
                                             </p>
                                         </div>
 

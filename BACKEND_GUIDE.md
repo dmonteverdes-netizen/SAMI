@@ -71,7 +71,45 @@ Notas:
 - **Pendiente de verificar** con el manual de Nubefact que recibas al crear la cuenta: los nombres de campos de respuesta (`aceptada_por_sunat`, `sunat_description`, `enlace_del_pdf`, `enlace_del_xml`, `enlace_del_cdr`). El código los lee de forma tolerante.
 - Sin credenciales, la emisión responde **"Modo Demostración — comprobante NO enviado a SUNAT"** y así queda registrado.
 
-## 6. Tests
+## 6. Envío directo a SUNAT sin PSE (Lycet)
+
+Alternativa gratuita a Nubefact: SAMI arma el comprobante, [Lycet](https://github.com/giansalex/lycet) (MIT, sobre Greenter) lo firma con el certificado de la MYPE y lo envía al web service de SUNAT. Probado: el Lycet real acepta y firma las facturas, boletas y notas de crédito que genera SAMI.
+
+### Probar contra el entorno beta de SUNAT (gratis, sin homologación)
+
+```bash
+git clone https://github.com/giansalex/lycet && cd lycet
+COMPOSER_ALLOW_SUPERUSER=1 composer install      # requiere PHP 8.x con soap, openssl, zip, dom
+# Certificado de prueba (en beta SUNAT no valida la entidad emisora del certificado):
+openssl req -x509 -newkey rsa:2048 -nodes -keyout k.pem -out c.pem -days 365 -subj "/CN=PRUEBAS" && cat k.pem c.pem > data/cert.pem
+php -S 127.0.0.1:8000 -t public                   # o: docker build -t lycet . && docker run -p 8000:8000 -v $PWD/data:/var/www/html/data lycet
+```
+
+El `.env` de Lycet ya apunta a beta (`FE_URL=https://e-beta.sunat.gob.pe/...`, usuario `MODDATOS`, `CLIENT_TOKEN=123456`). En SAMI:
+
+```
+LYCET_API_URL=http://127.0.0.1:8000
+LYCET_API_TOKEN=123456
+LYCET_SUNAT_ENV=beta
+```
+
+Requisitos de datos en SAMI: la MYPE debe existir en `smes` y su RUC debe estar en el **padrón SUNAT cargado** (de ahí salen dirección y ubigeo del emisor). Si el RUC de la MYPE no es el del usuario de beta, registra la empresa en Lycet:
+
+```bash
+curl -X PUT "http://127.0.0.1:8000/api/v1/configuration/company/<RUC>?token=123456" \
+  -H "Content-Type: application/json" \
+  -d '{"SOL_USER":"<RUC>MODDATOS","SOL_PASS":"moddatos","certificate":"<cert.pem en base64>"}'
+```
+
+Qué guarda SAMI: resultado de SUNAT, hash de la firma, **XML firmado y CDR** (el emisor debe conservarlos). XML y CDR se quedan en el servidor; no se envían al navegador.
+
+### Antes de producción (pendiente, no técnico)
+
+- Afiliar a cada MYPE al **SEE – Del Contribuyente**. Según fuentes de la industria exige homologación por contribuyente: confirmarlo con SUNAT.
+- Certificado por MYPE: SUNAT entrega el [Certificado Digital Tributario gratis a MYPE](https://cpe.sunat.gob.pe/certificado-digital-tributario) hasta el 31-12-2027.
+- Custodia: SAMI guardaría el certificado y un usuario secundario SOL de cada MYPE (nunca la Clave SOL principal). Requiere cifrado, consentimiento explícito y revisión legal.
+
+## 7. Tests
 
 ```bash
 npm test                                   # unitarios + integración (sin base de datos)

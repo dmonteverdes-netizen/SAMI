@@ -3,7 +3,7 @@
 // demo/pruebas y para producción: el modo depende de la cuenta, no del código.
 //   NUBEFACT_API_URL   = ruta de la cuenta (p. ej. https://api.nubefact.com/api/v1/<id>)
 //   NUBEFACT_API_TOKEN = token de la cuenta
-// Sin ambas variables, SAMI responde en Modo Demostración y el comprobante NO se envía a SUNAT.
+// La elección de proveedor y el Modo Demostración se resuelven en emissionProvider.ts.
 //
 // PENDIENTE DE VERIFICAR contra el manual oficial vigente de Nubefact (enviado al crear la cuenta):
 // los nombres de los campos de respuesta (aceptada_por_sunat, sunat_description, enlace_del_pdf,
@@ -11,28 +11,13 @@
 
 import { Invoice } from '../../core/types/types';
 import { IGV_RATE } from '../../core/services/accountingService';
+import { EmissionCustomer, EmissionResult, errorMessage } from './emissionTypes';
 
 // ─── Tipos e Interfaces ───
 
-export interface NubefactCustomer {
-  name?: string;
-  address?: string;
-  email?: string;
-}
-
-export interface EmissionResult {
-  success: boolean;
-  isSimulated: boolean;
-  provider: 'NUBEFACT' | 'SIMULADO';
-  environmentLabel: string;
-  acceptedBySunat?: boolean;
-  sunatCode?: string;
-  sunatMessage?: string;
-  pdfUrl?: string;
-  xmlUrl?: string;
-  cdrUrl?: string;
-  errors?: string[];
-}
+/** Alias por compatibilidad: el cliente del comprobante es común a todos los proveedores. */
+export type NubefactCustomer = EmissionCustomer;
+export type { EmissionResult };
 
 /** Respuesta JSON de Nubefact (campos usados por SAMI; todos opcionales por tolerancia). */
 interface NubefactApiResponse {
@@ -46,8 +31,6 @@ interface NubefactApiResponse {
   enlace_del_xml?: string;
   enlace_del_cdr?: string;
 }
-
-const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 // ─── Constantes y Configuración ───
 
@@ -142,21 +125,15 @@ export function buildNubefactPayload(invoice: Invoice, customer: NubefactCustome
 // ─── Envío ───
 
 export async function emitWithNubefact(invoice: Invoice, customer: NubefactCustomer = {}): Promise<EmissionResult> {
-  if (!isNubefactConfigured()) {
-    return {
-      success: true,
-      isSimulated: true,
-      provider: 'SIMULADO',
-      environmentLabel: 'Modo Demostración — comprobante NO enviado a SUNAT (configure NUBEFACT_API_URL y NUBEFACT_API_TOKEN)',
-      sunatMessage: 'Simulación: no hubo envío a SUNAT.',
-    };
-  }
-
   const base: Pick<EmissionResult, 'isSimulated' | 'provider' | 'environmentLabel'> = {
     isSimulated: false,
     provider: 'NUBEFACT',
     environmentLabel: 'Nubefact (el modo pruebas o producción depende de la cuenta configurada)',
   };
+
+  if (!isNubefactConfigured()) {
+    return { ...base, success: false, errors: ['Falta configurar NUBEFACT_API_URL y NUBEFACT_API_TOKEN.'] };
+  }
 
   let payload: Record<string, unknown>;
   try {
